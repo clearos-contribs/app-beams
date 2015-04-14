@@ -44,6 +44,7 @@ use \clearos\apps\base\File as File;
 use \clearos\apps\base\Folder as Folder;
 use \clearos\apps\base\Shell as Shell;
 use \clearos\apps\firewall_custom\Firewall_Custom as Firewall_Custom;
+use \clearos\apps\network\Network as Network;
 use \clearos\apps\network\Iface_Manager as Iface_Manager;
 use \clearos\apps\tasks\Cron as Cron;
 
@@ -53,6 +54,7 @@ clearos_load_library('base/File');
 clearos_load_library('base/Folder');
 clearos_load_library('base/Shell');
 clearos_load_library('firewall_custom/Firewall_Custom');
+clearos_load_library('network/Network');
 clearos_load_library('network/Iface_Manager');
 clearos_load_library('tasks/Cron');
 
@@ -100,12 +102,12 @@ class Beams extends Engine
     ///////////////////////////////////////////////////////////////////////////////
 
     protected $config = null;
-    protected $is_loaded = false;
+    protected $is_loaded = FALSE;
     private $_connection;
     private $_data;
     private $_timeout = 10;
     private $_prompt;
-    private $_test = false;
+    private $_test = TRUE;
     private $_test_function = NULL;
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -137,8 +139,7 @@ class Beams extends Engine
         if (! $this->is_loaded)
             $this->_load_config();
 
-        if (!$this->is_valid_command($command))
-            throw new Validation_Exception(lang('beams_command_invalid') . ' (' . $command . ')');
+        Validation_Exception::is_valid($this->validate_command($command));
 
         $this->_connect();
         $this->_send($command);
@@ -286,6 +287,115 @@ class Beams extends Engine
     }
 
     /**
+     * Returns interface configuration options.
+     *
+     * @return array
+     * @throws EngineException
+     */
+
+    function get_interface_configs()
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        if (isset($this->config['interface_config']))
+            return json_decode($this->config['interface_config'], TRUE);
+
+        $default = array('default' => array('description' => lang('base_default')));
+        return $default;
+    }
+
+    /**
+     * Update/add a interface configuration options.
+     *
+     * @param array $data interface options
+     *
+     * @return void
+     * @throws EngineException
+     */
+
+    function update_network_conf($data)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        if (isset($this->config['interface_config'])) {
+            $definitions = json_decode($this->config['interface_config'], TRUE);
+            $definitions[key($data)] = $data[key($data)];
+            $this->_set_parameter('interface_config', json_encode($definitions));
+        }
+    }
+
+    /**
+     * Deletes a interface configuration options.
+     *
+     * @param string $id network interface ID
+     *
+     * @return void
+     * @throws EngineException
+     */
+
+    function delete_network_config($id)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        if (isset($this->config['interface_config'])) {
+            $definitions = json_decode($this->config['interface_config'], TRUE);
+            unset($definitions[$id]);
+            $this->_set_parameter('interface_config', json_encode($definitions));
+        }
+        // Find any references to override and delete
+
+        $list = $this->get_beam_selector_list(false, false);
+        foreach ($list as $beam_id => $info) {
+            if (isset($this->config['ifconfig_' . $beam_id]) && $this->config['ifconfig_' . $beam_id] == $id)
+                $this->_set_parameter('ifconfig_' . $beam_id, 'default');
+        }
+    }
+
+    /**
+     * Returns TX Power.
+     *
+     * @param boolean $default use modem default
+     *
+     * @return String
+     * @throws EngineException
+     */
+
+    function get_power($default = FALSE)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        $power = 0;
+        try {
+            $output = $this->run_modem_command('tx power');
+            foreach ($output as $line) {
+                if (preg_match("/^Tx Power.*=\s* (-\s*\d+\.\d+)\s*dbm.*/", $line, $match)) {
+                    $power = round(preg_replace('/\s/', '', $match[1]), 0);
+                    break;
+                }
+            }
+        } catch (Exception $e) {
+            throw new Engine_Exception($e->GetMessage(), COMMON_WARNING);
+        }
+        if ($default)
+            $this->_set_parameter('tx_power', (int)$power);
+        else if ((int)$power == (int)$this->config['tx_power'])
+            $power = 0;
+        return (int)$power;
+    }
+
+    /**
      * Set Hostname.
      *
      * @param $hostname hostname
@@ -304,8 +414,7 @@ class Beams extends Engine
         // Validation
         // ----------
 
-        if (!$this->is_valid_hostname($hostname))
-            throw new Validation_Exception(lang('beams_hostname') . " - " . lang('base_invalid') . ' (' . $hostname . ')');
+        Validation_Exception::is_valid($this->validate_hostname($hostname));
 
         $this->_set_parameter('hostname', $hostname);
     }
@@ -329,10 +438,33 @@ class Beams extends Engine
         // Validation
         // ----------
 
-        if (!$this->is_valid_username($username))
-            throw new Validation_Exception(lang('beams_username') . " - " . lang('base_invalid') . ' (' . $username . ')');
+        Validation_Exception::is_valid($this->validate_username($username));
 
         $this->_set_parameter('username', $username);
+    }
+
+    /**
+     * Set Password.
+     *
+     * @param $password password
+     *
+     * @return void
+     * @throws Engine_Exception
+     */
+
+    function set_password($password)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        // Validation
+        // ----------
+
+        Validation_Exception::is_valid($this->validate_password($password));
+
+        $this->_set_parameter('password', $password);
     }
 
     /**
@@ -358,7 +490,7 @@ class Beams extends Engine
 
         if (!empty($list) && $list[0] != '') {
             foreach ($list as $email) {
-                if (!$this->is_valid_email(trim($email)))
+                if (!$this->validate_email(trim($email)))
                     throw new Validation_Exception(lang('beams_email') . " - " . lang('base_invalid') . ' (' . $email . ')');
                 $validated_list[] = trim($email);
             }
@@ -386,8 +518,7 @@ class Beams extends Engine
         // Validation
         // ----------
 
-        if (!$this->is_valid_beam($number))
-            throw new Validation_Exception(lang('beams_beam') . " - " . lang('base_invalid') . ' (' . $number . ')');
+        Validation_Exception::is_valid($this->validate_beam($number));
 
         $this->_connect();
         $this->_send("beamselector switch $number -f");
@@ -409,13 +540,51 @@ class Beams extends Engine
     }
 
     /**
+     * Set Transmit Power.
+     *
+     * @param int $power power
+     *
+     * @return void
+     * @throws EngineException
+     */
+
+    function set_power($power)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        // Validation
+        // ----------
+
+        Validation_Exception::is_valid($this->validate_power($power));
+
+        $list = $this->get_beam_selector_list(false, true);
+        foreach ($list as $id => $info) {
+            if ($info['selected'])
+                break;
+        }
+        $power_current = $beams->get_power();
+        if ($power_current != $power) {
+            $this->_connect();
+            if ($power == 0)
+                $this->_send('tx power ' . (int)$this->config['tx_power']);
+            else
+                $this->_send('tx power ' . $power);
+        }
+
+        $this->_set_parameter('power_' . $id, $power);
+    }
+
+    /**
      * Update lock.
      *
      * @return void
      * @throws Engine_Exception
      */
 
-    function UpdateModemLock()
+    function update_modem_lock()
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -502,15 +671,15 @@ class Beams extends Engine
     }
 
     /**
-     * Set Password.
+     * Set Interface.
      *
-     * @param $password password
+     * @param $interface interface
      *
      * @return void
-     * @throws Engine_Exception
+     * @throws EngineException
      */
 
-    function set_password($password)
+    function set_interface($interface)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -520,10 +689,9 @@ class Beams extends Engine
         // Validation
         // ----------
 
-        if (!$this->is_valid_password($password))
-            throw new Validation_Exception(lang('beams_password') . " - " . lang('base_invalid') . ' (' . $password . ')');
+        Validation_Exception::is_valid($this->validate_interface($interface));
 
-        $this->_set_parameter('password', $password);
+        $this->_set_parameter('interface', $interface);
     }
 
     /**
@@ -545,8 +713,7 @@ class Beams extends Engine
         // Validation
         // ----------
 
-        if (!$this->is_valid_vessel($vessel))
-            throw new Validation_Exception(lang('beams_vessel') . " - " . lang('base_invalid') . ' (' . $vessel . ')');
+        Validation_Exception::is_valid($this->validate_vessel($vessel));
 
         $this->_set_parameter('vessel', $vessel);
     }
@@ -636,6 +803,30 @@ class Beams extends Engine
         } catch (Exception $e) {
             throw new Engine_Exception(clearos_exception_message($e), CLEAROS_ERROR);
         }
+    }
+
+    /**
+     * Get Power options.
+     *
+     *
+     * @return array
+     * @throws Engine_Exception
+     */
+
+    public function get_power_options() 
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        $power_levels = array(0 => lang('beams_modem_default'));
+        for ($index = -1; $index >= -50; $index--) {
+            $text = '';
+            if ($index == -50)
+                $text = ' (' . lang('beams_minimum') . ')';
+            else if ($index == -1)
+                $text = ' (' . lang('beams_maximum') . ')';
+            $power_levels[$index] = $index . $text;
+        }
+        return $power_levels;
     }
 
     /**
@@ -768,16 +959,14 @@ class Beams extends Engine
      * @return boolean  true if valid
      */
 
-    function is_valid_hostname($hostname)
+    function validate_hostname($hostname)
     {
         clearos_profile(__METHOD__, __LINE__);
 
         $network = new Network();
 
-        if ($hostname !== 'localhost' && (! $network->is_valid_ip($hostname)) && (! $network->is_valid_domain($hostname)))
-            return false;
-        else
-            return true;
+        if ($hostname !== 'localhost' && (! $network->validate_ip($hostname)) && (! $network->validate_domain($hostname)))
+            return lang('beams_hostname') . " - " . lang('base_invalid');
     }
 
     /**
@@ -787,14 +976,12 @@ class Beams extends Engine
      * @return boolean true if username is valid
      */
 
-    function is_valid_username($username)
+    function validate_username($username)
     {
         clearos_profile(__METHOD__, __LINE__);
 
-        if (preg_match("/^([a-zA-Z0-9_\-\.\$]+)$/", $username))
-            return true;
-
-        return false;
+        if (!preg_match("/^([a-zA-Z0-9_\-\.\$]+)$/", $username))
+            return lang('beams_username') . " - " . lang('base_invalid');
     }
 
     /**
@@ -804,14 +991,13 @@ class Beams extends Engine
      * @return boolean true if password is valid
      */
 
-    function is_valid_password($password)
+    function validate_password($password)
     {
         clearos_profile(__METHOD__, __LINE__);
 
-        if (preg_match("/^([a-zA-Z0-9_\-\.\$]+)$/", $password))
-            return true;
+        if (!preg_match("/^([a-zA-Z0-9_\-\.\$]+)$/", $password))
+            return lang('beams_password') . " - " . lang('base_invalid');
 
-        return false;
     }
 
     /**
@@ -821,14 +1007,12 @@ class Beams extends Engine
      * @return boolean true if vessel is valid
      */
 
-    function is_valid_vessel($vessel)
+    function validate_vessel($vessel)
     {
         clearos_profile(__METHOD__, __LINE__);
 
-        if (preg_match("/^([a-zA-Z0-9_\-\. \@\!\(\)\&\$]+)$/", $vessel))
-            return true;
-
-        return false;
+        if (!preg_match("/^([a-zA-Z0-9_\-\. \@\!\(\)\&\$]+)$/", $vessel))
+            return lang('beams_vessel') . " - " . lang('base_invalid');
     }
 
     /**
@@ -838,7 +1022,7 @@ class Beams extends Engine
      * @return boolean true if beam is valid
      */
 
-    function is_valid_beam($beam)
+    function validate_beam($beam)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -857,7 +1041,7 @@ class Beams extends Engine
      * @param string $email an email address
      * @return boolean true if email is valid
      */
-    function is_valid_email($email)
+    function validate_email($email)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -873,7 +1057,7 @@ class Beams extends Engine
      * @param string $command a valid command
      * @return boolean true if command is valid
      */
-    function is_valid_command($command)
+    function validate_command($command)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -891,8 +1075,42 @@ class Beams extends Engine
     }
 
     /**
+     * Validation routine for an interface
+     *
+     * @param string $interface interface
+     * @return boolean true if interface is valid
+     */
+    function validate_interface($interface)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        $iface_manager = new Iface_Manager();
+
+        $ifaces = $iface_manager->get_interfaces();
+
+        if (! in_array($interface, $ifaces))
+            return lang('network_network_interface_invalid');
+    }
+
+    /**
+     * Validation routine for tx power
+     *
+     * @param int $power tx power
+     * @return errmsg if power is valid
+     */
+
+    function validate_power($power)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if ($power < -50 || $power > 0)
+            return lang('beams_tx_power') . ' - ' . lang('base_invalid');
+    }
+
+    /**
     * Establish a connection to the modem
     */
+
     private function _connect() 
     {
         clearos_profile(__METHOD__, __LINE__);
@@ -1047,7 +1265,7 @@ class Beams extends Engine
             $this->_load_config();
 
         foreach ($names as $key => $value) {
-            if (!$this->is_valid_nickname($value))
+            if (!$this->validate_nickname($value))
                 throw new Validation_Exception(lang('base_invalid') . ' (' . $key . '/' . $value . ')');
             $this->_set_parameter('nickname.' . $key, $value);
         }
@@ -1204,7 +1422,7 @@ class Beams extends Engine
      * @param string $command command
      *
      * @return void
-     * @throws Engine_Exception
+     * @throws Validation_Exception
     */
 
     private function _ssh($command)

@@ -97,6 +97,40 @@ class Settings extends ClearOS_Controller
         $this->load->library('network/Iface_Manager');
 		$this->lang->load('beams');
 
+        $this->form_validation->set_policy('vessel', 'beams/Beams', 'validate_vessel', TRUE);
+        if ($this->session->userdata('username') === 'root') {
+            $this->form_validation->set_policy('hostname', 'beams/Beams', 'validate_hostname', TRUE);
+            $this->form_validation->set_policy('username', 'beams/Beams', 'validate_username', TRUE);
+            $this->form_validation->set_policy('password', 'beams/Beams', 'validate_password', TRUE);
+            $this->form_validation->set_policy('interface', 'beams/Beams', 'validate_interface', TRUE);
+            $this->form_validation->set_policy('power', 'beams/Beams', 'validate_power', TRUE);
+        }
+
+        $form_ok = $this->form_validation->run();
+
+        // Handle form submit
+        //-------------------
+
+        if ($this->input->post('submit') && ($form_ok === TRUE)) {
+
+            try {
+                $this->beams->set_vessel($this->input->post('vessel'));
+
+                // Return to summary page with status message
+                $this->page->set_status_added();
+                if ($this->session->userdata('username') === 'root') {
+                    $this->beams->set_hostname($this->input->post('hostname'));
+                    $this->beams->set_username($this->input->post('username'));
+                    $this->beams->set_password($this->input->post('password'));
+                    $this->beams->set_interface($this->input->post('interface'));
+                }
+                redirect('/beams');
+            } catch (Exception $e) {
+                $this->page->view_exception($e);
+                return;
+            }
+        }
+
         $data = array();
         try {
             $ifaces = $this->iface_manager->get_external_interfaces();
@@ -110,6 +144,14 @@ class Settings extends ClearOS_Controller
         }
 
         $data['show_admin'] = ($this->session->userdata('username') === 'root') ? TRUE : FALSE;
+        $data['vessel'] = $this->beams->get_vessel();
+        $data['hostname'] = $this->beams->get_hostname();
+        $data['username'] = $this->beams->get_username();
+        $data['password'] = $this->beams->get_password();
+        $data['interface'] = $this->beams->get_interface();
+        $data['power'] = $this->beams->get_power();
+        $data['power_options'] = $this->beams->get_power_options();
+        $data['form_type'] = $form_type;
 
         $this->page->view_form('beams/settings', $data, lang('beams_beams'));
 	}

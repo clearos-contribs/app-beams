@@ -24,7 +24,7 @@ $this->lang->load('beams');
 // Form open
 ///////////////////////////////////////////////////////////////////////////////
 
-echo form_open('beams/settings');
+echo form_open('beams/settings/edit');
 echo form_header(lang('base_settings'));
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -51,6 +51,7 @@ if ($show_admin) {
     echo field_input('password', $password, lang('beams_password'), $read_only);
     echo field_dropdown('interface', $interfaces, $interface, lang('network_interface'), $read_only);
 }
+echo field_dropdown('power', $power_options, $power, lang('beams_tx_power'), (!$show_admin || $read_only ? TRUE : FALSE));
 echo field_checkbox('autoswitch', $autoswitch, lang('beams_autoswitch'), $read_only);
 if ($show_admin) {
     echo field_textarea('email_latlong', implode("\n", $email_latlong), lang('beams_email_lat_long'));
