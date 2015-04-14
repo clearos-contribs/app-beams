@@ -34,7 +34,16 @@ $app['controllers']['notification']['title'] = lang('mail_smtp_notification_sett
 /////////////////////////////////////////////////////////////////////////////
 
 $app['core_requires'] = array(
+    'app-firewall-custom-core'
 );
 
 $app['core_file_manifest'] = array(
+);
+
+$app['core_directory_manifest'] = array(
+   '/var/clearos/beams.d' => array('mode' => '755', 'owner' => 'root', 'group' => 'root')
+);
+
+$app['delete_dependency'] = array(
+    'app-beams-core'
 );

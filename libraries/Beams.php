@@ -38,16 +38,22 @@ clearos_load_language('beams');
 // Classes
 //--------
 
+use \clearos\apps\base\Engine as Engine;
 use \clearos\apps\base\Configuration_File as Configuration_File;
 use \clearos\apps\base\File as File;
 use \clearos\apps\base\Folder as Folder;
 use \clearos\apps\base\Shell as Shell;
+use \clearos\apps\firewall_custom\Firewall_Custom as Firewall_Custom;
+use \clearos\apps\network\Iface_Manager as Iface_Manager;
 use \clearos\apps\tasks\Cron as Cron;
 
+clearos_load_library('base/Engine');
 clearos_load_library('base/Configuration_File');
 clearos_load_library('base/File');
 clearos_load_library('base/Folder');
 clearos_load_library('base/Shell');
+clearos_load_library('firewall_custom/Firewall_Custom');
+clearos_load_library('network/Iface_Manager');
 clearos_load_library('tasks/Cron');
 
 // Exceptions
@@ -81,7 +87,13 @@ class Beams extends Engine
     // C O N S T A N T S
     ///////////////////////////////////////////////////////////////////////////////
 
+    const SAT_BEAM_NOTE = 'SAT_BEAM_NIC_TOGGLE-';
     const FILE_CONFIG = '/etc/clearos/beams.conf';
+    const IPTABLES_BLOCK = 'iptables -I INPUT -i %s -j DROP';
+    const FILE_LAT_LONG_CACHE = '/var/clearos/framework/cache/beams-latlong.cache';
+    const FILE_CRONFILE = "app-beams";
+    const FILE_TIMER = "/var/clearos/beams/timer";
+    const CMD_NOTIFY_SCRIPT = '/usr/clearos/app/beams/deploy/beam_notification.php';
 
     ///////////////////////////////////////////////////////////////////////////////
     // V A R I A B L E S
@@ -181,6 +193,28 @@ class Beams extends Engine
             $this->_load_config();
 
         return $this->config['username'];
+    }
+
+    /**
+     * Returns interface.
+     *
+     * @return String
+     * @throws EngineException
+     */
+
+    function get_interface()
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        if (isset($this->config['interface']))
+            return $this->config['interface'];
+        $iface_manager = new Iface_Manager();
+        $ifaces = $iface_manager->get_external_interfaces();
+        $iface = reset($ifaces);
+        return $iface;
     }
 
     /**
@@ -618,7 +652,13 @@ class Beams extends Engine
     {
         clearos_profile(__METHOD__, __LINE__);
 
-        global $BEAMS;
+        $info_file = clearos_app_base('beams') . '/deploy/base_list.php';
+
+        if (file_exists($info_file))
+            include $info_file;
+        else
+            $BEAMS = array();
+
         if (! $this->is_loaded)
             $this->_load_config();
         $result = array();
@@ -643,15 +683,15 @@ class Beams extends Engine
             if (!$display_all && !in_array($beam[0] . ':' . $beam[1], $acl))
                 continue;
             $result[] = array(
-                                        'id' => $beam[0] . ':' . $beam[1],
-                                        'provider' => $beam[0],
-                                        'number' => $beam[1],
-                                        'name' => $beam[2],
-                                        'position' => $beam[3],
-                                        'description' => $beam[4],
-                                        'selected' => ($selected == $beam[1] ? TRUE : FALSE),
-                    'region' => $beam[5],
-                    'available' => in_array($beam[0] . ':' . $beam[1], $acl)
+                'id' => $beam[0] . ':' . $beam[1],
+                'provider' => $beam[0],
+                'number' => $beam[1],
+                'name' => $beam[2],
+                'position' => $beam[3],
+                'description' => $beam[4],
+                'selected' => ($selected == $beam[1] ? TRUE : FALSE),
+                'region' => $beam[5],
+                'available' => in_array($beam[0] . ':' . $beam[1], $acl)
             );
 
         }
@@ -670,8 +710,6 @@ class Beams extends Engine
     function __destruct()
     {
         clearos_profile(__METHOD__, __LINE__);
-
-        parent::__destruct();
     }
 
     /**
@@ -953,80 +991,242 @@ class Beams extends Engine
         if (strpos($this->_data, '% Invalid input detected') !== false) $this->_data = false;
     }
 
-    ///////////////////////////////////////////////////////////////////////////////
-    // P R I V A T E   M E T H O D S
-    ///////////////////////////////////////////////////////////////////////////////
+    /**
+     * Get network interface status
+     *
+     * @return array
+     * @throws Engine_Exception
+    */
+
+    public function get_interface_status()
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        $iface_manager = new Iface_Manager();
+        $ifaces = $iface_manager->get_interface_details();
+        $fw = new Firewall_Custom();
+        $rules = $fw->get_rules();
+        $status = array(); 
+        foreach ($rules as $line => $rule) {
+            if (preg_match('/\s*' . self::SAT_BEAM_NOTE .'\s*(.*)/', $rule['description'], $match))
+                $status[$match[1]] = TRUE;
+        }
+
+        foreach ($ifaces as $name => $info) {
+            if (!$info['configured'])
+                continue;
+            if (array_key_exists($name, $status))
+                $ifaces[$name]['fw_disabled'] = TRUE;
+            else
+                $ifaces[$name]['fw_disabled'] = FALSE;
+            if (isset($this->config["nickname.$name"]))
+                $ifaces[$name]['nickname'] = $this->config["nickname.$name"];
+            else
+                $ifaces[$name]['nickname'] = $name;
+        }
+        return $ifaces;
+    }
 
     /**
-     * Loads configuration files.
+     * Update NIC nicknames
+     *
+     * @param String $names string name
+     *
+     * @return void
+     * @throws Validation_Exception
+    */
+
+    public function update_nic_nicknames($names)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        foreach ($names as $key => $value) {
+            if (!$this->is_valid_nickname($value))
+                throw new Validation_Exception(lang('base_invalid') . ' (' . $key . '/' . $value . ')');
+            $this->_set_parameter('nickname.' . $key, $value);
+        }
+    }
+
+    /**
+     * Reset network disable state
      *
      * @return void
      * @throws Engine_Exception
-     */
+    */
 
-    protected function _load_config()
+    public function reset_network_disable_state()
     {
         clearos_profile(__METHOD__, __LINE__);
 
-        $configfile = new Configuration_File(self::FILE_CONFIG);
-
-        try {
-            $this->config = $configfile->load();
-        } catch (Exception $e) {
-            throw new Engine_Exception(clearos_exception_message($e), CLEAROS_ERROR);
+        $fw = new Firewall_Custom();
+        $rules = $fw->get_rules();
+        $found = FALSE; 
+        foreach ($rules as $line => $rule) {
+            if (preg_match('/\s*' . self::SAT_BEAM_NOTE . '.*/', $rule['description'])) {
+                $fw->delete_rule($line);
+                $found = TRUE;
+            }
         }
-
-        $this->is_loaded = TRUE;
+        if ($found) { 
+            $firewall = new Firewall();
+            $firewall->Restart();
+        }
     }
 
     /**
-     * Generic set routine.
+     * Toggle NIC status
      *
-     * @param string $key   key name
-     * @param string $value value for the key
+     * @param string $nic NIC
      *
-     * @return  void
+     * @return void
      * @throws Engine_Exception
-     */
+    */
 
-    function _set_parameter($key, $value)
+    public function toggle_nic($nic)
     {
         clearos_profile(__METHOD__, __LINE__);
 
-        try {
-            $file = new File(self::FILE_CONFIG, TRUE);
-
-            if (!$file->exists())
-                $file->create('webconfig', 'webconfig', '0644');
-
-            $match = $file->replace_lines("/^$key\s*=\s*/", "$key=$value\n");
-
-            if (!$match)
-                $file->add_lines("$key=$value\n");
-        } catch (Exception $e) {
-            throw new Engine_Exception(clearos_exception_message($e), CLEAROS_ERROR);
+        $fw = new Firewall_Custom();
+        $rules = $fw->get_rules();
+        $found = FALSE;
+        foreach ($rules as $line => $rule) {
+            if (trim($rule['description']) == self::SAT_BEAM_NOTE . $nic) {
+                $fw->delete_rule($line);
+                $found = TRUE;
+                break;
+            }
         }
+        if (!$found)
+            $fw->add_rule(sprintf(self::IPTABLES_BLOCK, $nic), self::SAT_BEAM_NOTE . $nic, TRUE, 0);
 
-        $this->is_loaded = FALSE;
+        $firewall = new Firewall();
+        $firewall->Restart();
     }
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // V A L I D A T I O N   R O U T I N E S
-    ///////////////////////////////////////////////////////////////////////////////
 
     /**
-     * Validation routine for me
+     * Set networking up 
      *
-     * @param string $me TODO
+     * @param string $id Network ID
      *
-     * @return boolean TRUE if me is valid
-     */
+     * @return void
+     * @throws Engine_Exception
+    */
 
-    public function validate_me($me)
+    public function set_networking($id)
     {
         clearos_profile(__METHOD__, __LINE__);
 
-        if (! preg_match("/^[A-Za-z0-9\.\- ]+$/", $me))
-            return lang('beams_me_is_invalid');
+        $eth = $this->get_interface();
+        $interface = new Iface($eth);
+    
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        $configs = $this->get_interface_configs();
+        if (!array_key_exists($this->config['ifconfig_' . $id], $configs))
+            throw new Exception (lang('beams_network_definition_not_found') . ' (' . $this->config['ifconfig_' . $id] . ')');
+    
+        $bootproto = $configs[$this->config['ifconfig_' . $id]]['bootproto'];
+        $options = $configs[$this->config['ifconfig_' . $id]]['options'];
+
+        if (!isset($this->config['dyn_network_update']) || $this->config['dyn_network_update'] != 'yes') {
+            echo "** Debug Mode**\n";
+            echo "Network Update Disabled!\n";
+            echo "Parameters Follow\n";
+            echo "Eth " . $eth . "\n";
+            echo "Boot Proto: " . $bootproto . "\n";
+            echo "Options: ";
+            print_r($options);
+            echo "\n";
+            return;
+        }
+
+        $routes = new Routes();
+        $firewall = new Firewall();
+
+        if ($bootproto == Iface::BOOTPROTO_PPPOE) {
+            // PPPoE
+            //------
+            $firewall->remove_interface_role($eth);
+            $eth = $interface->save_pppoe_config($eth, $options['username'], $options['password'], $options['mtu'], $options['pppoe_peerdns']);
+        } else if ($bootproto == Iface::BOOTPROTO_DHCP) {
+            // Ethernet
+            //---------
+            $interface->save_ethernet_config(true, "", "", "", $options['dhcp_hostname'], $options['peerdns']);
+            $options['gateway'] = $routes->get_default();
+        } else if ($bootproto == Iface::BOOTPROTO_STATIC) {
+            // Static
+            //-------
+            $interface->save_ethernet_config(false, $options['ip'], $options['netmask'], $options['gateway'], "", false, true);
+        }
+
+        // Reset the routes
+        //-----------------
+
+        $role = Firewall::CONSTANT_EXTERNAL;
+        $routes->set_gateway_device($eth);
+
+        // Set firewall roles
+        //-------------------
+
+        $firewall->set_interface_role($eth, $role);
+
+        // Enable interface 
+        //-----------------
+
+        // Response time can take too long on PPPoE and DHCP connections.
+
+        if (($bootproto == Iface::BOOTPROTO_DHCP) || ($bootproto == Iface::BOOTPROTO_PPPOE))
+            $interface->enable(true);
+        else
+            $interface->enable(false);
+
+        // Restart syswatch
+        //-----------------
+    
+        $syswatch = new Syswatch();
+        $syswatch->reset();
+
+        // Set Modem IP
+        $this->set_hostname($options['gateway']);
+
     }
+
+    /**
+     * Establish an SSH connection to the modem
+     *
+     * @param string $command command
+     *
+     * @return void
+     * @throws Engine_Exception
+    */
+
+    private function _ssh($command)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        set_include_path("/usr/clearos/apps/beams/deploy/phpssl");
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        $list = array(
+            'reboot'
+        );
+        if (!in_array($command, $list))
+            throw new Validation_Exception(lang('beams_command_not_allowed'));
+
+        $ssh = new Net_SSH2($this->config['hostname']);
+        if (!$ssh->login('root', $this->config['password']))
+            throw new Validation_Exception(lang('beams_ssh_failed'));
+
+        echo $ssh->exec($command);
+    }
+
 }
