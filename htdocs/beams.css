@@ -3,3 +3,24 @@
   font-weight: 700;
   font-style: italic;
 }
+#terminal_wait {
+  padding-top: 50px;
+  font-size: 3em;
+  color: #a0a0a0;
+}
+#terminal_out {
+  font-family: Courier New, monospace;
+  display: block;
+  padding: 9.5px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.428571429;
+  word-break: break-all;
+  word-wrap: break-word;
+  color: #282828;
+  background-color: #f5f5f5;
+  border: 1px solid #cccccc;
+  border-radius: 3px;
+  min-height: 200px;
+  white-space: pre-line;
+}

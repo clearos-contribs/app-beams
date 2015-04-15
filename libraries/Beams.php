@@ -43,8 +43,9 @@ use \clearos\apps\base\Configuration_File as Configuration_File;
 use \clearos\apps\base\File as File;
 use \clearos\apps\base\Folder as Folder;
 use \clearos\apps\base\Shell as Shell;
+use \clearos\apps\date\NTP_Time as NTP_Time;
 use \clearos\apps\firewall_custom\Firewall_Custom as Firewall_Custom;
-use \clearos\apps\network\Network as Network;
+use \clearos\apps\network\Hosts as Hosts;
 use \clearos\apps\network\Iface_Manager as Iface_Manager;
 use \clearos\apps\tasks\Cron as Cron;
 
@@ -53,8 +54,9 @@ clearos_load_library('base/Configuration_File');
 clearos_load_library('base/File');
 clearos_load_library('base/Folder');
 clearos_load_library('base/Shell');
+clearos_load_library('date/NTP_Time');
 clearos_load_library('firewall_custom/Firewall_Custom');
-clearos_load_library('network/Network');
+clearos_load_library('network/Hosts');
 clearos_load_library('network/Iface_Manager');
 clearos_load_library('tasks/Cron');
 
@@ -94,7 +96,7 @@ class Beams extends Engine
     const IPTABLES_BLOCK = 'iptables -I INPUT -i %s -j DROP';
     const FILE_LAT_LONG_CACHE = '/var/clearos/framework/cache/beams-latlong.cache';
     const FILE_CRONFILE = "app-beams";
-    const FILE_TIMER = "/var/clearos/beams/timer";
+    const FILE_TIMER = "/var/clearos/framework/tmp/beams.timer";
     const CMD_NOTIFY_SCRIPT = '/usr/clearos/app/beams/deploy/beam_notification.php';
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -107,7 +109,7 @@ class Beams extends Engine
     private $_data;
     private $_timeout = 10;
     private $_prompt;
-    private $_test = TRUE;
+    private $_test = FALSE;
     private $_test_function = NULL;
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -160,6 +162,19 @@ class Beams extends Engine
         $this->_data = $filtered_data;
         $this->_close();
         return $this->_data;
+    }
+
+    /**
+     * Reboot modem.
+     *
+     * @return void
+     * @throws Engine_Exception
+     */
+
+    function reboot_modem()
+    {
+        clearos_profile(__METHOD__, __LINE__);
+        $this->_ssh('reboot');
     }
 
     /**
@@ -266,7 +281,7 @@ class Beams extends Engine
         if (! $this->is_loaded)
             $this->_load_config();
 
-        return $this->config['autoswitch'];
+        return $this->config['auto_switch'];
     }
 
     /**
@@ -276,7 +291,7 @@ class Beams extends Engine
      * @throws Engine_Exception
      */
 
-    function get_email_lat_long()
+    function get_email_latlong()
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -386,13 +401,55 @@ class Beams extends Engine
                 }
             }
         } catch (Exception $e) {
-            throw new Engine_Exception($e->GetMessage(), COMMON_WARNING);
+            throw new Engine_Exception(clearos_exception_message($e), CLEAROS_ERROR);
         }
         if ($default)
             $this->_set_parameter('tx_power', (int)$power);
         else if ((int)$power == (int)$this->config['tx_power'])
             $power = 0;
         return (int)$power;
+    }
+
+    /**
+     * Returns Position Report Interval.
+     *
+     * @return String
+     * @throws Engine_Exception
+     */
+
+    function get_position_report()
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        $cronlines = "";
+    
+        try {
+            $cron = new Cron();
+            $cronrawdata = $cron->get_configlet(self::FILE_CRONFILE);
+            $cronlines = explode("\n", $cronrawdata);
+        } catch (Exception $e) {
+            throw new Engine_Exception(clearos_exception_message($e), CLEAROS_ERROR);
+        }
+
+        foreach ($cronlines as $line) {
+            if ( (! preg_match("/^#/", $line)) && (! preg_match("/^\s*$/", $line))) {
+                $rawline = $line;
+                break;
+            }
+        }
+
+        // Parse the cron info 
+        //--------------------
+
+        $cronentries = explode(" ", $rawline, 7);
+        // If day is set, return 24 hours
+        if (preg_match('/^(\d+)$/', $cronentries[1]))
+            return 24;
+        if (preg_match('/\*\/(\d+)/', $cronentries[1], $match))
+            return $match[1];
+
+        // Return default 6 hrs
+        return 6;
     }
 
     /**
@@ -417,6 +474,35 @@ class Beams extends Engine
         Validation_Exception::is_valid($this->validate_hostname($hostname));
 
         $this->_set_parameter('hostname', $hostname);
+    }
+
+    /**
+     * Set Position Report Interval.
+     *
+     * @param $interval interval
+     *
+     * @return void
+     * @throws EngineException
+     */
+
+    function set_position_report($interval)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        try {
+            $cron = new Cron();
+
+            if ($cron->ExistsCrondConfiglet(self::FILE_CRONFILE))
+                $cron->DeleteCrondConfiglet(self::FILE_CRONFILE);
+
+            $hour = 2;
+            if ($interval < 24)
+                $hour = "*/$interval";
+    
+            $cron->add_crond_configlet_by_parts(self::FILE_CRONFILE, 0, $hour, "*", "*", "*", "root", self::CMD_NOTIFY_SCRIPT . " >/dev/null 2>&1");
+        } catch (Exception $e) {
+            throw new Engine_Exception(clearos_exception_message($e), CLEAROS_ERROR);
+        }
     }
 
     /**
@@ -470,13 +556,13 @@ class Beams extends Engine
     /**
      * Set email lat/long list.
      *
-     * @param array $list a valid list of emails
+     * @param string $email_latlong a valid string of emails
      *
      * @return void
      * @throws Engine_Exception
      */
 
-    function set_email_lat_long($list)
+    function set_email_latlong($email_latlong)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -486,34 +572,28 @@ class Beams extends Engine
         // Validation
         // ----------
 
-        $validated_list = array();
+        Validation_Exception::is_valid($this->validate_email_latlong($email_latlong));
 
-        if (!empty($list) && $list[0] != '') {
-            foreach ($list as $email) {
-                if (!$this->validate_email(trim($email)))
-                    throw new Validation_Exception(lang('beams_email') . " - " . lang('base_invalid') . ' (' . $email . ')');
-                $validated_list[] = trim($email);
-            }
-        }
-
-        $this->_set_parameter('email_latlong', implode(',', $validated_list));
+        $this->_set_parameter('email_latlong', preg_replace("/\n/",",", $email_latlong));
     }
 
     /**
      * Set Beam.
      *
-     * @param $number beam number
+     * @param $id beam ID
      *
      * @return void
      * @throws Engine_Exception
      */
 
-    function set_beam($number)
+    function set_beam($id)
     {
         clearos_profile(__METHOD__, __LINE__);
 
         if (! $this->is_loaded)
             $this->_load_config();
+
+        list($provider, $number) = preg_split('/:/', $id);
 
         // Validation
         // ----------
@@ -524,7 +604,7 @@ class Beams extends Engine
         $this->_send("beamselector switch $number -f");
         if ($this->_test)
             $this->_test_function = "set_beam";
-        
+
         $this->_read_to($this->_prompt);
         $this->_data = explode("\n", $this->_data);
         $this->_close();
@@ -536,7 +616,20 @@ class Beams extends Engine
             }
         }
         if (!$ok)
-            throw new Engine_Exception(lang('beams_beam_switch_failed'));
+            throw new Engine_Exception(lang('beams_switch_failed'));
+
+        $this->_set_parameter('beam_selected', $id);
+
+        // Set power to default for now
+        $this->_set_parameter('tx_power', 0);
+
+        $file = new File(self::FILE_TIMER);
+        if ($file->exists())
+            $file->delete();
+        $file->create("webconfig", "webconfig", "0644");
+        $file->add_lines(time());
+        $this->set_networking($id);
+
     }
 
     /**
@@ -602,34 +695,37 @@ class Beams extends Engine
     /**
      * Set AutoSwitch.
      *
-     * @param $autoswitch autoswitch
+     * @param $auto switch auto switch
      *
      * @return boolean
      * @throws Engine_Exception
      */
 
-    function set_auto_switch($autoswitch)
+    function set_auto_switch($auto_switch)
     {
         clearos_profile(__METHOD__, __LINE__);
 
         if (! $this->is_loaded)
             $this->_load_config();
 
-        if (isset($autoswitch) && ($autoswitch == 'on' || $autoswitch))
-            $autoswitch = true;
+        if (isset($auto_switch) && ($auto_switch == 'on' || $auto_switch))
+            $auto_switch = true;
         else
-            $autoswitch = false;
+            $auto_switch = false;
 
-        if ($this->get_auto_switch() == $autoswitch)
+        if ($this->_test) {
+            $this->_set_parameter('auto_switch', $auto_switch);
+            return $auto_switch;
+        }
+        if ($this->get_auto_switch() == $auto_switch)
             return false;
 
-        if (!$autoswitch) {
+        if (!$auto_switch) {
             $this->_connect();
             $this->_send('beamselector lock');
             if ($this->_test)
                 $this->_test_function = "set_auto_switch";
         } else {
-            //$beams = $this->get_beam_selector_list();
             $this->_connect();
             $this->_send('beamselector list');
             if ($this->_test)
@@ -650,7 +746,7 @@ class Beams extends Engine
         $this->_read_to($this->_prompt);
         $this->_data = explode("\n", $this->_data);
         $ok = false;
-        if ($autoswitch) {
+        if ($auto_switch) {
             foreach ($this->_data as $mydata) {
                 if (preg_match("/^Scheduling Service Restart.*/", $mydata)) {
                     $ok = true;
@@ -665,7 +761,7 @@ class Beams extends Engine
         if (!$ok)
             throw new Engine_Exception(lang('beams_auto_switch_failed'));
             
-        $this->_set_parameter('autoswitch', $autoswitch);
+        $this->_set_parameter('auto_switch', $auto_switch);
         // Return true to indicate we changed something
         return true;
     }
@@ -766,10 +862,10 @@ class Beams extends Engine
                 }
             }
             $file = new File(self::FILE_LAT_LONG_CACHE);
-            if ($file->Exists()) {
+            if ($file->exists()) {
                 $content = $file->get_contents();
                 if ($content == $latlong_est) {
-                    echo "Lat/Long ($latlong_est) has not changed...\n";
+                    clearos_profile(__METHOD__, __LINE__, "Lat/Long ($latlong_est) has not changed...");
                     return; 
                 }
                 $file->delete();
@@ -784,7 +880,7 @@ class Beams extends Engine
             $subject = lang('beams_email_notification') . ' - ' . $hostname->get();
             $body = "\n\n" . lang('beams_email_notification') . "\n";
             $body .= str_pad('', strlen(lang('beams_email_notification')), '=') . "\n\n";
-            $ntptime = new NtpTime();
+            $ntptime = new NTP_Time();
             date_default_timezone_set($ntptime->get_time_zone());
 
             $thedate = strftime("%b %e %Y");
@@ -963,9 +1059,9 @@ class Beams extends Engine
     {
         clearos_profile(__METHOD__, __LINE__);
 
-        $network = new Network();
+        $hosts = new Hosts();
 
-        if ($hostname !== 'localhost' && (! $network->validate_ip($hostname)) && (! $network->validate_domain($hostname)))
+        if ($hostname !== 'localhost' && $hosts->validate_ip($hostname) != NULL && $hosts->validate_hostname($hostname) != NULL)
             return lang('beams_hostname') . " - " . lang('base_invalid');
     }
 
@@ -1036,22 +1132,6 @@ class Beams extends Engine
     }
 
     /**
-     * Validation routine for an email address
-     *
-     * @param string $email an email address
-     * @return boolean true if email is valid
-     */
-    function validate_email($email)
-    {
-        clearos_profile(__METHOD__, __LINE__);
-
-        if(!eregi("^.*@localhost$|^[a-z0-9\._-]+@+[a-z0-9\._-]+\.+[a-z]{2,4}$", $email))
-            return false;
-
-        return true;
-    }
-
-    /**
      * Validation routine for command list
      *
      * @param string $command a valid command
@@ -1108,6 +1188,55 @@ class Beams extends Engine
     }
 
     /**
+     * Validation routine for email for lat/long notifications.
+     *
+     * @param string $email_latlong email or string of emails
+     *
+     * @return mixed void if email is valid, errmsg otherwise
+     */
+
+    public function validate_email_latlong($email_latlong)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        $emails = explode("\n", $email_latlong);
+        foreach ($emails as $email) {
+            if (!preg_match("/^([a-zA-Z0-9])+([a-zA-Z0-9\._-])*@([a-zA-Z0-9_-])+([a-zA-Z0-9\._-]+)+$/", $email))
+                return lang('base_email_address_invalid');
+        }
+    }
+
+    /**
+     * Validation routine for auto switch
+     *
+     * @param boolean $auto_switch auto switch beams
+     * @return errmsg if auto_switch is valid
+     */
+
+    function validate_auto_switch($auto_switch)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (!preg_match('/on|off/', strtolower($auto_switch)) && !is_bool($auto_switch))
+            return lang('beams_auto_switch') . ' - ' . lang('base_invalid');
+    }
+
+    /**
+     * Validation routine for NIC nickname.
+     *
+     * @param string $nickname nickname
+     * @return boolean true if nickname is valid
+     */
+
+    function validate_nickname($nickname)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (!preg_match("/^([a-zA-Z0-9_\-\. \@\!\(\)\&\$]+)$/", $nickname))
+            return lang('beams_nickname') . " - " . lang('base_invalid');
+    }
+
+    /**
     * Establish a connection to the modem
     */
 
@@ -1158,7 +1287,7 @@ class Beams extends Engine
         clearos_profile(__METHOD__, __LINE__);
 
         if ($this->_test) {
-            echo "Testing enable...sending modem cmd: " . $command . "<br>";
+            clearos_profile(__METHOD__, __LINE__, "Testing enabled...sending modem cmd: " . $command);
             return;
         }
 
@@ -1185,9 +1314,9 @@ class Beams extends Engine
                     "\n" .
                     "[RMT:64678] admin@telnet:::ffff:213.175.141.228;52935\n";
             else if (preg_match("/run_modem_command: (.*)/", $this->_test_function, $match))
-                $this->_data = "Result from " . $match[0] . "\n";
+                $this->_data = "Test mode enabled, " . $match[0] . "\n";
             else
-                echo "Unknown function";
+                clearos_profile(__METHOD__, __LINE__, "Unknown function.");
             return;
         }
 
@@ -1249,26 +1378,50 @@ class Beams extends Engine
     }
 
     /**
-     * Update NIC nicknames
+     * Set NIC nickname
      *
-     * @param String $names string name
+     * @param String $nic      NIC interface
+     * @param String $nickname string Nickname
      *
      * @return void
      * @throws Validation_Exception
     */
 
-    public function update_nic_nicknames($names)
+    public function set_nickname($nic, $nickname)
     {
         clearos_profile(__METHOD__, __LINE__);
 
         if (! $this->is_loaded)
             $this->_load_config();
 
-        foreach ($names as $key => $value) {
-            if (!$this->validate_nickname($value))
-                throw new Validation_Exception(lang('base_invalid') . ' (' . $key . '/' . $value . ')');
-            $this->_set_parameter('nickname.' . $key, $value);
-        }
+        // Validation
+        // ----------
+
+        Validation_Exception::is_valid($this->validate_nickname($nickname));
+
+        $this->_set_parameter('nickname.' . $nic, $nickname);
+    }
+
+    /**
+     * Get modem commands
+     *
+     * @return array
+     * @throws Engine_Exception
+    */
+
+    public function get_modem_commands()
+    {
+        clearos_profile(__METHOD__, __LINE__);
+        $commands = array(
+            '0' => lang('beams_select_command'),
+            'beamselector list' => lang('beams_cmd_selector_list'),
+            'rx snr' => lang('beams_cmd_rx_snr'),
+            'spoof dump' => lang('beams_cmd_spoof_dump'),
+            'latlong' => lang('beams_cmd_latlong'),
+            'version' => lang('beams_cmd_version'),
+            'rmtstat' => lang('beams_cmd_rmtstat')
+        );
+        return $commands;
     }
 
     /**
@@ -1354,14 +1507,10 @@ class Beams extends Engine
         $options = $configs[$this->config['ifconfig_' . $id]]['options'];
 
         if (!isset($this->config['dyn_network_update']) || $this->config['dyn_network_update'] != 'yes') {
-            echo "** Debug Mode**\n";
-            echo "Network Update Disabled!\n";
-            echo "Parameters Follow\n";
-            echo "Eth " . $eth . "\n";
-            echo "Boot Proto: " . $bootproto . "\n";
-            echo "Options: ";
-            print_r($options);
-            echo "\n";
+            clearos_profile(__METHOD__, __LINE__, "Debug mode - network update disabled.");
+            clearos_profile(__METHOD__, __LINE__, "Eth " . $eth);
+            clearos_profile(__METHOD__, __LINE__, "Boot Proto: " . $bootproto);
+            clearos_profile(__METHOD__, __LINE__, "Options: " . json_encode($options));;
             return;
         }
 
@@ -1429,14 +1578,18 @@ class Beams extends Engine
     {
         clearos_profile(__METHOD__, __LINE__);
 
-        set_include_path("/usr/clearos/apps/beams/deploy/phpssl");
+        set_include_path(clearos_app_base('beams') . '/deploy/phpssl');
+
+        if ($this->_test) {
+            clearos_profile(__METHOD__, __LINE__, "Debug enabled - ssh command send: " . $command);
+            return;
+        }
 
         if (! $this->is_loaded)
             $this->_load_config();
 
-        $list = array(
-            'reboot'
-        );
+        // TODO - This is a command ACL list...could be moved/expanded
+        $list = array('reboot');
         if (!in_array($command, $list))
             throw new Validation_Exception(lang('beams_command_not_allowed'));
 
@@ -1444,7 +1597,7 @@ class Beams extends Engine
         if (!$ssh->login('root', $this->config['password']))
             throw new Validation_Exception(lang('beams_ssh_failed'));
 
-        echo $ssh->exec($command);
+        $ssh->exec($command);
     }
 
 }

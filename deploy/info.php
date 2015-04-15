@@ -38,6 +38,15 @@ $app['core_requires'] = array(
 );
 
 $app['core_file_manifest'] = array(
+   'app-beams.cron' => array('target' => '/etc/cron.d/app-beams'),
+   'beams.conf' => array(
+        'target' => '/etc/clearos/beams.conf',
+        'mode' => '0644',
+        'owner' => 'webconfig',
+        'group' => 'webconfig',
+        'config' => TRUE,
+        'config_params' => 'noreplace',
+    )
 );
 
 $app['core_directory_manifest'] = array(

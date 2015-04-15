@@ -25,35 +25,41 @@ header('Content-Type: application/x-javascript');
 
 ?>
 
-var lang_exec = '<?php echo lang('beams_exec'); ?>';
+var lang_warning = '<?php echo lang('base_warning'); ?>';
 
 $(document).ready(function() {
     if ($('#net_name').length > 0) {
         toggle_network_type();
     }
+    $('#command').on('click', function(e) {
+        e.preventDefault();
+        if ($('#command').val() == 0)
+            $('#terminal_out').html('');
+        else
+            execute_command($('#command').val());
+    });
 });
 
-function cmd() {
-    if ($('#command').val() == 0) {
-        $('#whirly').hide();
-        return;
-    }
-    var options = new Object();
-    options.text = lang_exec + '<span id="exec_cmd"></span>';
+function execute_command(command) {
+    var options = new Object;
     options.center = true;
-    $('#exec_out').html(clearos_loading(options));
-    $('#whirly').show();
-    $('#exec_cmd').html($('#command').val());
+    options.id = 'terminal_wait';
+
+    $('#terminal_out').html(clearos_loading(options));
     $.ajax({
         dataType: 'json',
-        url: '/app/beams/exec',
-        data: 'ci_csrf_token=' + $.cookie('ci_csrf_token') + '&exec=' + $('#command').val(),
+        url: '/app/beams/modem/execute',
+        data: 'ci_csrf_token=' + $.cookie('ci_csrf_token') + '&command=' + command,
         type: 'POST',
-        success: function(html) {
-            $('#exec_out').html(html);
+        success: function(json) {
+            $('#terminal_out').html('');
+            $.each(json, function (id, line) {
+                $('#terminal_out').append('<span>' + line + '</span>');
+            });
         },
         error: function(xhr, text, err) {
-            $('#whirly').html(xhr.responseText.toString());
+            $('#terminal_out').html('');
+            clearos_dialog_box('error', lang_warning, xhr.responseText.toString());
         }
     });
 }

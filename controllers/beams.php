@@ -13,23 +13,6 @@
  */
 
 ///////////////////////////////////////////////////////////////////////////////
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-//
-///////////////////////////////////////////////////////////////////////////////
-
-///////////////////////////////////////////////////////////////////////////////
 // C L A S S
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -61,8 +44,13 @@ class Beams extends ClearOS_Controller
 		// Load views
 		//-----------
 
-        $views = array('beams/settings', 'beams/satellites');
+        $controllers = array('beams/settings');
 
-        $this->page->view_forms($views, lang('beams_app_name'));
+        $options['breadcrumb_links'] = array(
+            'settings' => array('url' => '/app/beams/network', 'tag' => lang('beams_network_status')),
+            'terminal' => array('url' => '/app/beams/modem/terminal', 'tag' => lang('beams_terminal')),
+            'power' => array('url' => '/app/beams/modem/reboot', 'tag' => lang('beams_reboot_modem'))
+        );
+        $this->page->view_controllers($controllers, lang('beams_app_name'), $options);
 	}
 }

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Satellites summary view.
+ * Network summary view.
  *
  * @category   apps
  * @package    beams
@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 $this->lang->load('base');
+$this->lang->load('network');
 $this->lang->load('beams');
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -30,39 +31,53 @@ $anchors = array(anchor_cancel('/app/beams'));
 ///////////////////////////////////////////////////////////////////////////////
 
 $headers = array(
-    lang('beams_provider'),
-    lang('beams_satellite_name'),
-    lang('base_description'),
-    lang('beams_number'),
-    lang('beams_tx_power'),
-    lang('beams_network_config')
+    lang('network_interface'),
+    lang('beams_nickname'),
+    lang('network_role'),
+    lang('network_ip'),
+    lang('base_status')
 );
 
 ///////////////////////////////////////////////////////////////////////////////
 // Items
 ///////////////////////////////////////////////////////////////////////////////
 
-foreach ($satellites as $id => $satellite) {
-    $detail_buttons = button_set(
-        array(
-            anchor_edit('/app/beams/satellite/edit/' . $id, 'high'),
-        )
-    );
+foreach ($interfaces as $name => $info) {
 
     ///////////////////////////////////////////////////////////////////////////
     // Item details
     ///////////////////////////////////////////////////////////////////////////
 
-    $item['title'] = $satellite['provider'] . "-" . $satellite['name'];
-    $item['action'] = '/app/satellite/edit/';
-    $item['anchors'] = $detail_buttons;
+    if (!$info['configured'])
+                continue;
+
+    $ip = empty($info['address']) ? '' : $info['address'];
+    $role = isset($info['role']) ? $info['role'] : "";
+    $roletext = isset($info['roletext']) ? $info['roletext'] : "";
+    $status = lang('beams_no_link');
+    if (isset($info['link'])) {
+        if ($info['link'] == 1) {
+            if ($info['fw_disabled'])
+                $status = lang('beams_disabled');
+            else
+                $status = lang('beams_active');
+        }
+    }
+
+    $buttons = array(
+        anchor_edit('/app/beams/network/edit/' . $name, 'high')
+    );
+
+        $buttons[] = anchor_custom('/app/beams/network/toggle/' . $name, lang('beams_toggle_status'), 'low');
+
+    $item['title'] = $name;
+    $item['anchors'] = button_set($buttons);
     $item['details'] = array(
-        $satellite['provider'],
-        $satellite['name'],
-        $satellite['description'],
-        $satellite['number'],
-        $satellite['tx_power'],
-        $satellite['network'],
+        $name,
+        $info['nickname'],
+        $roletext,
+        $ip,
+        $status
     );
 
     $items[] = $item;
@@ -73,12 +88,12 @@ foreach ($satellites as $id => $satellite) {
 ///////////////////////////////////////////////////////////////////////////////
 
 $options = array(
-    'id' => 'satellite_list',
-    'responsive' => array(4 => 'none', 5 => 'none')
+    'id' => 'network_list',
+    'responsive' => array(2 => 'none', 3 => 'none')
 );
 
 echo summary_table(
-    lang('beams_beams'),
+    lang('beams_network_status'),
     $anchors,
     $headers,
     $items,

@@ -13,23 +13,6 @@
  */
 
 ///////////////////////////////////////////////////////////////////////////////
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-//
-///////////////////////////////////////////////////////////////////////////////
-
-///////////////////////////////////////////////////////////////////////////////
 // C L A S S
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -98,12 +81,15 @@ class Settings extends ClearOS_Controller
 		$this->lang->load('beams');
 
         $this->form_validation->set_policy('vessel', 'beams/Beams', 'validate_vessel', TRUE);
+        $this->form_validation->set_policy('auto_switch', 'beams/Beams', 'validate_auto_switch', TRUE);
+        $this->form_validation->set_policy('position_report', 'beams/Beams', 'validate_position_report', TRUE);
         if ($this->session->userdata('username') === 'root') {
             $this->form_validation->set_policy('hostname', 'beams/Beams', 'validate_hostname', TRUE);
             $this->form_validation->set_policy('username', 'beams/Beams', 'validate_username', TRUE);
             $this->form_validation->set_policy('password', 'beams/Beams', 'validate_password', TRUE);
             $this->form_validation->set_policy('interface', 'beams/Beams', 'validate_interface', TRUE);
             $this->form_validation->set_policy('power', 'beams/Beams', 'validate_power', TRUE);
+            $this->form_validation->set_policy('email_latlong', 'beams/Beams', 'validate_email_latlong', FALSE);
         }
 
         $form_ok = $this->form_validation->run();
@@ -115,6 +101,8 @@ class Settings extends ClearOS_Controller
 
             try {
                 $this->beams->set_vessel($this->input->post('vessel'));
+                $this->beams->set_auto_switch($this->input->post('auto_switch'));
+                $this->beams->set_position_report($this->input->post('position_report'));
 
                 // Return to summary page with status message
                 $this->page->set_status_added();
@@ -123,6 +111,7 @@ class Settings extends ClearOS_Controller
                     $this->beams->set_username($this->input->post('username'));
                     $this->beams->set_password($this->input->post('password'));
                     $this->beams->set_interface($this->input->post('interface'));
+                    $this->beams->set_email_latlong($this->input->post('email_latlong'));
                 }
                 redirect('/beams');
             } catch (Exception $e) {
@@ -143,16 +132,23 @@ class Settings extends ClearOS_Controller
             return;
         }
 
-        $data['show_admin'] = ($this->session->userdata('username') === 'root') ? TRUE : FALSE;
-        $data['vessel'] = $this->beams->get_vessel();
-        $data['hostname'] = $this->beams->get_hostname();
-        $data['username'] = $this->beams->get_username();
-        $data['password'] = $this->beams->get_password();
-        $data['interface'] = $this->beams->get_interface();
-        $data['power'] = $this->beams->get_power();
-        $data['power_options'] = $this->beams->get_power_options();
-        $data['form_type'] = $form_type;
+        try {
+            $data['form_type'] = $form_type;
+            $data['show_admin'] = ($this->session->userdata('username') === 'root') ? TRUE : FALSE;
+            $data['power_options'] = $this->beams->get_power_options();
+            $data['position_report'] = $this->beams->get_position_report();
+            $data['vessel'] = $this->beams->get_vessel();
+            $data['hostname'] = $this->beams->get_hostname();
+            $data['username'] = $this->beams->get_username();
+            $data['password'] = $this->beams->get_password();
+            $data['interface'] = $this->beams->get_interface();
+            $data['email_latlong'] = $this->beams->get_email_latlong();
+            $data['auto_switch'] = $this->beams->get_auto_switch();
+            $data['power'] = $this->beams->get_power();
+        } catch (Exception $e) {
+            $data['modem_connect_failed'] = clearos_exception_message($e); 
+        }
 
-        $this->page->view_form('beams/settings', $data, lang('beams_beams'));
+        $this->page->view_form('beams/settings', $data, lang('base_settings'));
 	}
 }
