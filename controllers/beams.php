@@ -44,7 +44,7 @@ class Beams extends ClearOS_Controller
 		// Load views
 		//-----------
 
-        $controllers = array('beams/settings');
+        $controllers = array('beams/settings', 'beams/satellites');
 
         $options['breadcrumb_links'] = array(
             'settings' => array('url' => '/app/beams/network', 'tag' => lang('beams_network_status')),

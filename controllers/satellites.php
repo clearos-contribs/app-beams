@@ -61,8 +61,108 @@ class Satellites extends ClearOS_Controller
 
 		$this->lang->load('beams');
 
-        $data['satellites'] = $this->beams->get_beam_selector_list(TRUE, FALSE);
+        try {
+            $data['satellites'] = $this->beams->get_beam_selector_list();
+        } catch (Exception $e) {
+            $data['modem_connect_failed'] = clearos_exception_message($e); 
+        }
         $data['autoswitch'] = $this->beams->get_auto_switch();
+        $data['show_admin'] = ($this->session->userdata('username') === 'root') ? TRUE : FALSE;
+
         $this->page->view_form('beams/satellites', $data, lang('beams_beams'));
+	}
+
+    /**
+     * Edit satellite controller.
+     *
+     * @param string $id beam ID
+     *
+     * @return view
+     */
+
+    function edit($id)
+    {
+        // Load libraries
+        //---------------
+        $this->load->library('beams/Beams');
+
+		$this->lang->load('beams');
+
+        try {
+            $satellites = $this->beams->get_beam_selector_list();
+        } catch (Exception $e) {
+            $data['modem_connect_failed'] = clearos_exception_message($e); 
+        }
+        $data['beam'] = $satellites[$id];
+        $data['power_options'] = $this->beams->get_power_options();
+
+        $this->page->view_form('beams/beam', $data, lang('beams_beams'));
+	}
+
+    /**
+     * Administer satellites controller.
+     *
+     * @return view
+     */
+
+    function admin()
+    {
+        // Load libraries
+        //---------------
+        $this->load->library('beams/Beams');
+
+		$this->lang->load('beams');
+
+        try {
+            $data['satellites'] = $this->beams->get_beam_selector_list(TRUE, FALSE);
+        } catch (Exception $e) {
+            $data['modem_connect_failed'] = clearos_exception_message($e); 
+        }
+        $data['autoswitch'] = $this->beams->get_auto_switch();
+        $data['show_admin'] = ($this->session->userdata('username') === 'root') ? TRUE : FALSE;
+
+        $this->page->view_form('beams/admin_satellites', $data, lang('beams_beams'));
+	}
+
+    /**
+     * Enable satellite controller.
+     *
+     * @param string $id satellite ID
+     *
+     * @return void
+     */
+
+    function enable($id)
+    {
+        // Load libraries
+        //---------------
+        $this->load->library('beams/Beams');
+
+		$this->lang->load('beams');
+
+        $data['satellites'] = $this->beams->set_acl($id, TRUE);
+
+        redirect('/beams/satellites/admin');
+	}
+
+    /**
+     * Disable satellite controller.
+     *
+     * @param string $id satellite ID
+     *
+     * @return void
+     */
+
+    function disable($id)
+    {
+        // Load libraries
+        //---------------
+        $this->load->library('beams/Beams');
+
+		$this->lang->load('beams');
+
+        $data['satellites'] = $this->beams->set_acl($id, FALSE);
+
+        redirect('/beams/satellites/admin');
 	}
 }

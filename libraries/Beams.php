@@ -109,7 +109,7 @@ class Beams extends Engine
     private $_data;
     private $_timeout = 10;
     private $_prompt;
-    private $_test = FALSE;
+    private $_test = TRUE;
     private $_test_function = NULL;
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -817,23 +817,26 @@ class Beams extends Engine
     /**
      * Set Beam ACL.
      *
-     * @param $acl ACL
+     * @param string  $id Beam ID
+     * @param boolean $enable enabled
      *
      * @return void
      * @throws Engine_Exception
      */
 
-    function set_acl($acl)
+    function set_acl($id, $enable)
     {
         clearos_profile(__METHOD__, __LINE__);
 
         if (! $this->is_loaded)
             $this->_load_config();
 
-        // Validation
-        // ----------
+        $settings = json_decode($this->config['acl'], TRUE);
+        if ($settings == NULL || $settings === FALSE)
+            $settings = array();
+        $settings[$id] = $enable;
 
-        $this->_set_parameter('acl', implode(",", $acl));
+        $this->_set_parameter('acl', json_encode($settings));
     }
 
     /**
@@ -965,12 +968,14 @@ class Beams extends Engine
                 break;
             }
         }
-        $acl = explode(",", $this->config['acl']);
+        $acl = json_decode($this->config['acl'], TRUE);
         foreach ($BEAMS as $beam) {
-            if (!$display_all && !in_array($beam[0] . ':' . $beam[1], $acl))
+            $available = FALSE;
+            if ($acl != NULL && $acl !== FALSE && array_key_exists($beam[0] . '_' . $beam[1], $acl) && $acl[$beam[0] . '_' . $beam[1]])
+                $available = TRUE;
+            if (!$display_all && !$available)
                 continue;
-            $result[] = array(
-                'id' => $beam[0] . ':' . $beam[1],
+            $result[$beam[0] . '_' . $beam[1]] = array(
                 'provider' => $beam[0],
                 'number' => $beam[1],
                 'name' => $beam[2],
@@ -978,7 +983,7 @@ class Beams extends Engine
                 'description' => $beam[4],
                 'selected' => ($selected == $beam[1] ? TRUE : FALSE),
                 'region' => $beam[5],
-                'available' => in_array($beam[0] . ':' . $beam[1], $acl)
+                'available' => $available
             );
 
         }

@@ -43,8 +43,6 @@ if ($form_type === 'edit') {
 } else {
     $read_only = TRUE;
     $buttons = array(anchor_edit('/app/beams/settings/edit'));
-    if ($show_admin)
-        $buttons[] = anchor_custom('/app/beams/satellites', lang('beams_configure_satellites'));
 }
 
 echo field_input('vessel', $vessel, lang('beams_vessel'), $read_only);

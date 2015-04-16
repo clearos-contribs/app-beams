@@ -19,16 +19,11 @@
 $this->lang->load('base');
 $this->lang->load('beams');
 
-if ($modem_connect_failed)
-    echo infobox_critical(lang('beams_modem_communication_failure'), $modem_connect_failed);
-
 ///////////////////////////////////////////////////////////////////////////////
 // Anchors
 ///////////////////////////////////////////////////////////////////////////////
 
-$anchors = NULL;
-if ($show_admin)
-    $anchors = array(anchor_custom('/app/beams/satellites/admin', lang('beams_admin')));
+$anchors = array(anchor_cancel('/app/beams'));
 
 ///////////////////////////////////////////////////////////////////////////////
 // Headers
@@ -38,8 +33,9 @@ $headers = array(
     lang('beams_provider'),
     lang('beams_satellite_name'),
     lang('base_description'),
-    lang('beams_position'),
-    lang('beams_number')
+    lang('beams_number'),
+    lang('beams_tx_power'),
+    lang('beams_network_config')
 );
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -47,27 +43,35 @@ $headers = array(
 ///////////////////////////////////////////////////////////////////////////////
 
 foreach ($satellites as $id => $satellite) {
-    $button = anchor_custom('/app/beams/satellites/switch/' . $id, lang('beams_switch_beam'), 'high');
-    if ($autoswitch == TRUE && $satellite['selected'])
-        $button = anchor_custom('/app/beams/satellites/reset/' . $id, lang('beams_reset'), 'high');
-    else if ($autoswitch != TRUE && $satellite['selected'])
-        $button = anchor_custom('/app/beams/satellites/reset/' . $id, lang('beams_reset'), 'high');
-    
-    $detail_buttons = button_set(array($button));
+    if ($satellite['available']) {
+        $detail_buttons = button_set(
+            array(
+                anchor_custom('/app/beams/satellites/disable/' . $id, lang('base_disable'), 'high'),
+                anchor_edit('/app/beams/satellites/edit/' . $id, 'low')
+            )
+        );
+    } else {
+        $detail_buttons = button_set(
+            array(
+                anchor_custom('/app/beams/satellites/enable/' . $id, lang('base_enable'), 'high'),
+                anchor_edit('/app/beams/satellites/edit/' . $id, 'low')
+            )
+        );
+    }
 
     ///////////////////////////////////////////////////////////////////////////
     // Item details
     ///////////////////////////////////////////////////////////////////////////
 
     $item['title'] = $satellite['provider'] . "-" . $satellite['name'];
-    $item['action'] = '/app/satellite/edit/';
     $item['anchors'] = $detail_buttons;
     $item['details'] = array(
         $satellite['provider'],
         $satellite['name'],
         $satellite['description'],
-        $satellite['position'],
-        $satellite['number']
+        $satellite['number'],
+        $satellite['tx_power'],
+        $satellite['network'],
     );
 
     $items[] = $item;
@@ -78,9 +82,8 @@ foreach ($satellites as $id => $satellite) {
 ///////////////////////////////////////////////////////////////////////////////
 
 $options = array(
-    'id' => 'satellite_list',
-    'default_rows' => 100,
-    'responsive' => array(3 => 'none', 4 => 'none')
+    'id' => 'satellite_admin_list',
+    'responsive' => array(0 => 'none', 1 => 'none', 3 => 'none')
 );
 
 echo summary_table(
