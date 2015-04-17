@@ -83,7 +83,7 @@ foreach ($satellites as $id => $satellite) {
 
 $options = array(
     'id' => 'satellite_admin_list',
-    'responsive' => array(0 => 'none', 1 => 'none', 3 => 'none')
+    'responsive' => array(0 => 'none', 4 => 'none', 5 => 'none')
 );
 
 echo summary_table(

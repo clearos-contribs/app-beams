@@ -20,6 +20,7 @@ $bootstrap = getenv('CLEAROS_BOOTSTRAP') ? getenv('CLEAROS_BOOTSTRAP') : '/usr/c
 require_once $bootstrap . '/bootstrap.php';
 
 clearos_load_language('beams');
+clearos_load_language('base');
 
 header('Content-Type: application/x-javascript');
 
@@ -28,6 +29,7 @@ header('Content-Type: application/x-javascript');
 var lang_warning = '<?php echo lang('base_warning'); ?>';
 
 $(document).ready(function() {
+    set_interface_fields();
     if ($('#net_name').length > 0) {
         toggle_network_type();
     }
@@ -37,6 +39,9 @@ $(document).ready(function() {
             $('#terminal_out').html('');
         else
             execute_command($('#command').val());
+    });
+    $('#bootproto').change(function() {
+        set_interface_fields();
     });
 });
 
@@ -62,6 +67,45 @@ function execute_command(command) {
             clearos_dialog_box('error', lang_warning, xhr.responseText.toString());
         }
     });
+}
+
+/**
+ * Sets visibility of network interface fields.
+ */
+
+function set_interface_fields() {
+    // Static
+    $('#ipaddr_field').hide();
+    $('#netmask_field').hide();
+    $('#gateway_field').hide();
+    $('#enable_dhcp_field').hide();
+
+    // DHCP
+    $('#hostname_field').hide();
+    $('#dhcp_dns_field').hide();
+
+    // PPPoE
+    $('#username_field').hide();
+    $('#password_field').hide();
+    $('#mtu_field').hide();
+    $('#pppoe_dns_field').hide();
+
+    type = $('#bootproto').val();
+
+    if (type == 'static') {
+        $('#ipaddr_field').show();
+        $('#netmask_field').show();
+        $('#gateway_field').show();
+        $('#enable_dhcp_field').show();
+    } else if (type == 'dhcp') {
+        $('#hostname_field').show();
+        $('#dhcp_dns_field').show();
+    } else if (type == 'pppoe') {
+        $('#username_field').show();
+        $('#password_field').show();
+        $('#mtu_field').show();
+        $('#pppoe_dns_field').show();
+    }
 }
 
 // vim: syntax=javascript ts=4

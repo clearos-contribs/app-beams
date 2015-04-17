@@ -19,7 +19,7 @@
 $this->lang->load('base');
 $this->lang->load('beams');
 
-if ($modem_connect_failed)
+if (isset($modem_connect_failed))
     echo infobox_critical(lang('beams_modem_communication_failure'), $modem_connect_failed);
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -47,11 +47,11 @@ $headers = array(
 ///////////////////////////////////////////////////////////////////////////////
 
 foreach ($satellites as $id => $satellite) {
-    $button = anchor_custom('/app/beams/satellites/switch/' . $id, lang('beams_switch_beam'), 'high');
+    $button = anchor_custom('/app/beams/satellites/switch_beam/' . $id, lang('beams_switch_beam'), 'high');
     if ($autoswitch == TRUE && $satellite['selected'])
-        $button = anchor_custom('/app/beams/satellites/reset/' . $id, lang('beams_reset'), 'high');
+        $button = anchor_custom('/app/beams/satellites/reset_beam/' . $id, lang('base_reset'), 'high');
     else if ($autoswitch != TRUE && $satellite['selected'])
-        $button = anchor_custom('/app/beams/satellites/reset/' . $id, lang('beams_reset'), 'high');
+        $button = anchor_custom('/app/beams/satellites/reset_beam/' . $id, lang('base_reset'), 'high');
     
     $detail_buttons = button_set(array($button));
 

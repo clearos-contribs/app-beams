@@ -1,3 +1,4 @@
+#!/usr/clearos/sandbox/usr/bin/php
 <?php
 
 /**
@@ -63,7 +64,7 @@ try {
     clearos_log('beam_notification', "Error setting networking: " . clearos_exception_message($e));
 }
 try {
-	$beams->SendLatLong();
+	$beams->send_latlong();
 } catch (Exception $e) {
     echo "Error sending lat/long: " . clearos_exception_message($e) . "\n";
     clearos_log('beam_notification', "Error sending lat/long: " . clearos_exception_message($e));

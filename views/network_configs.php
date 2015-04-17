@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Network summary view.
+ * Network configs view.
  *
  * @category   apps
  * @package    beams
@@ -17,68 +17,51 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 $this->lang->load('base');
-$this->lang->load('network');
 $this->lang->load('beams');
+$this->lang->load('network');
 
 ///////////////////////////////////////////////////////////////////////////////
 // Anchors
 ///////////////////////////////////////////////////////////////////////////////
 
-$anchors = array(anchor_cancel('/app/beams'));
+$anchors = array(
+    anchor_custom('/app/beams/iface/add', lang('beams_add_network_config')),
+    anchor_cancel('/app/beams/satellites/admin')
+);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Headers
 ///////////////////////////////////////////////////////////////////////////////
 
 $headers = array(
-    lang('network_interface'),
-    lang('beams_nickname'),
-    lang('network_role'),
-    lang('network_ip'),
-    lang('base_status')
+    lang('beams_name'),
+    lang('base_description'),
+    lang('network_protocol')
 );
 
 ///////////////////////////////////////////////////////////////////////////////
 // Items
 ///////////////////////////////////////////////////////////////////////////////
 
-foreach ($interfaces as $name => $info) {
+foreach ($configs as $id => $config) {
+    if ($id == 'default')
+        continue;
+    
+    $detail_buttons = button_set(
+        anchor_edit('/app/beams/network/edit/' . $id, 'high'),
+        anchor_delete('/app/beams/network/delete/' . $id, 'low')
+    );
 
     ///////////////////////////////////////////////////////////////////////////
     // Item details
     ///////////////////////////////////////////////////////////////////////////
 
-    if (!$info['configured'])
-                continue;
-
-    $ip = empty($info['address']) ? '' : $info['address'];
-    $role = isset($info['role']) ? $info['role'] : "";
-    $roletext = isset($info['roletext']) ? $info['roletext'] : "";
-    $status = lang('beams_no_link');
-    if (isset($info['link'])) {
-        if ($info['link'] == 1) {
-            if ($info['fw_disabled'])
-                $status = lang('beams_disabled');
-            else
-                $status = lang('beams_active');
-        }
-    }
-
-    $buttons = array(
-        anchor_edit('/app/beams/network/edit/' . $name, 'high')
-    );
-
-    if ($info['role'] != 'EXTIF') 
-        $buttons[] = anchor_custom('/app/beams/network/toggle/' . $name, lang('beams_toggle_status'), 'low');
-
-    $item['title'] = $name;
-    $item['anchors'] = button_set($buttons);
+    $item['title'] = $config['name'];
+    $item['anchors'] = $detail_buttons;
     $item['details'] = array(
-        $name,
-        $info['nickname'],
-        $roletext,
-        $ip,
-        $status
+        $config['name'],
+        $config['description'],
+        $config['protocol']
     );
 
     $items[] = $item;
@@ -89,12 +72,11 @@ foreach ($interfaces as $name => $info) {
 ///////////////////////////////////////////////////////////////////////////////
 
 $options = array(
-    'id' => 'network_list',
-    'responsive' => array(2 => 'none', 3 => 'none')
+    'id' => 'network_conf_list'
 );
 
 echo summary_table(
-    lang('beams_network_status'),
+    lang('beams_network_options'),
     $anchors,
     $headers,
     $items,

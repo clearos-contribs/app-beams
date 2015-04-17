@@ -83,4 +83,20 @@ class Network extends ClearOS_Controller
         $this->page->view_form('beams/nickname', $data, lang('beams_nickname'));
     }
 
+    /**
+     * Network option summary controller.
+     *
+     * @return view
+     */
+    function summary()
+    {
+        // Load libraries
+        //---------------
+
+        $this->load->library('beams/Beams');
+		$this->lang->load('beams');
+
+        $data['configs'] = $this->beams->get_interface_configs();
+        $this->page->view_form('beams/network_configs', $data, lang('beams_network_configs'));
+    }
 }

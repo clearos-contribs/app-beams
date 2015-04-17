@@ -81,7 +81,7 @@ class Settings extends ClearOS_Controller
 		$this->lang->load('beams');
 
         $this->form_validation->set_policy('vessel', 'beams/Beams', 'validate_vessel', TRUE);
-        $this->form_validation->set_policy('auto_switch', 'beams/Beams', 'validate_auto_switch', TRUE);
+        $this->form_validation->set_policy('auto_switch', 'beams/Beams', 'validate_auto_switch', FALSE);
         $this->form_validation->set_policy('position_report', 'beams/Beams', 'validate_position_report', TRUE);
         if ($this->session->userdata('username') === 'root') {
             $this->form_validation->set_policy('hostname', 'beams/Beams', 'validate_hostname', TRUE);
@@ -137,6 +137,7 @@ class Settings extends ClearOS_Controller
             $data['show_admin'] = ($this->session->userdata('username') === 'root') ? TRUE : FALSE;
             $data['power_options'] = $this->beams->get_power_options();
             $data['position_report'] = $this->beams->get_position_report();
+            $data['position_report_options'] = $this->beams->get_position_report_options();
             $data['vessel'] = $this->beams->get_vessel();
             $data['hostname'] = $this->beams->get_hostname();
             $data['username'] = $this->beams->get_username();

@@ -104,5 +104,3 @@ try {
 } catch (Exception $e) {
     $script->unlock();
 }
-
-
