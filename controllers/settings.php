@@ -84,9 +84,9 @@ class Settings extends ClearOS_Controller
         $this->form_validation->set_policy('auto_switch', 'beams/Beams', 'validate_auto_switch', FALSE);
         $this->form_validation->set_policy('position_report', 'beams/Beams', 'validate_position_report', TRUE);
         if ($this->session->userdata('username') === 'root') {
-            $this->form_validation->set_policy('hostname', 'beams/Beams', 'validate_hostname', TRUE);
-            $this->form_validation->set_policy('username', 'beams/Beams', 'validate_username', TRUE);
-            $this->form_validation->set_policy('password', 'beams/Beams', 'validate_password', TRUE);
+            $this->form_validation->set_policy('modem_hostname', 'beams/Beams', 'validate_modem_hostname', TRUE);
+            $this->form_validation->set_policy('modem_username', 'beams/Beams', 'validate_modem_username', TRUE);
+            $this->form_validation->set_policy('modem_password', 'beams/Beams', 'validate_modem_password', TRUE);
             $this->form_validation->set_policy('interface', 'beams/Beams', 'validate_interface', TRUE);
             $this->form_validation->set_policy('power', 'beams/Beams', 'validate_power', TRUE);
             $this->form_validation->set_policy('email_latlong', 'beams/Beams', 'validate_email_latlong', FALSE);
@@ -107,9 +107,9 @@ class Settings extends ClearOS_Controller
                 // Return to summary page with status message
                 $this->page->set_status_added();
                 if ($this->session->userdata('username') === 'root') {
-                    $this->beams->set_hostname($this->input->post('hostname'));
-                    $this->beams->set_username($this->input->post('username'));
-                    $this->beams->set_password($this->input->post('password'));
+                    $this->beams->set_modem_hostname($this->input->post('modem_hostname'));
+                    $this->beams->set_modem_username($this->input->post('modem_username'));
+                    $this->beams->set_modem_password($this->input->post('modem_password'));
                     $this->beams->set_interface($this->input->post('interface'));
                     $this->beams->set_email_latlong($this->input->post('email_latlong'));
                 }
@@ -139,9 +139,9 @@ class Settings extends ClearOS_Controller
             $data['position_report'] = $this->beams->get_position_report();
             $data['position_report_options'] = $this->beams->get_position_report_options();
             $data['vessel'] = $this->beams->get_vessel();
-            $data['hostname'] = $this->beams->get_hostname();
-            $data['username'] = $this->beams->get_username();
-            $data['password'] = $this->beams->get_password();
+            $data['modem_hostname'] = $this->beams->get_modem_hostname();
+            $data['modem_username'] = $this->beams->get_modem_username();
+            $data['modem_password'] = $this->beams->get_modem_password();
             $data['interface'] = $this->beams->get_interface();
             $data['email_latlong'] = $this->beams->get_email_latlong();
             $data['auto_switch'] = $this->beams->get_auto_switch();

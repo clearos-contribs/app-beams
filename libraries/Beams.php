@@ -46,8 +46,10 @@ use \clearos\apps\base\Shell as Shell;
 use \clearos\apps\date\NTP_Time as NTP_Time;
 use \clearos\apps\firewall_custom\Firewall_Custom as Firewall_Custom;
 use \clearos\apps\network\Hosts as Hosts;
+use \clearos\apps\network\Network_Utils as Network_Utils;
 use \clearos\apps\network\Iface as Iface;
 use \clearos\apps\network\Iface_Manager as Iface_Manager;
+use \clearos\apps\mail_notification\Mail_Notification as Mail_Notification;
 use \clearos\apps\tasks\Cron as Cron;
 
 clearos_load_library('base/Engine');
@@ -58,8 +60,10 @@ clearos_load_library('base/Shell');
 clearos_load_library('date/NTP_Time');
 clearos_load_library('firewall_custom/Firewall_Custom');
 clearos_load_library('network/Hosts');
+clearos_load_library('network/Network_Utils');
 clearos_load_library('network/Iface');
 clearos_load_library('network/Iface_Manager');
+clearos_load_library('mail_notification/Mail_Notification');
 clearos_load_library('tasks/Cron');
 
 // Exceptions
@@ -111,7 +115,7 @@ class Beams extends Engine
     private $_data;
     private $_timeout = 10;
     private $_prompt;
-    private $_test = FALSE;
+    private $_test = TRUE;
     private $_test_function = NULL;
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -186,7 +190,7 @@ class Beams extends Engine
      * @throws Engine_Exception
      */
 
-    function get_hostname()
+    function get_modem_hostname()
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -197,13 +201,13 @@ class Beams extends Engine
     }
 
     /**
-     * Returns Username.
+     * Returns modem username.
      *
      * @return String
      * @throws Engine_Exception
      */
 
-    function get_username()
+    function get_modem_username()
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -211,6 +215,23 @@ class Beams extends Engine
             $this->_load_config();
 
         return $this->config['username'];
+    }
+
+    /**
+     * Returns modem password.
+     *
+     * @return String
+     * @throws Engine_Exception
+     */
+
+    function get_modem_password()
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        return $this->config['password'];
     }
 
     /**
@@ -233,23 +254,6 @@ class Beams extends Engine
         $ifaces = $iface_manager->get_external_interfaces();
         $iface = reset($ifaces);
         return $iface;
-    }
-
-    /**
-     * Returns Password.
-     *
-     * @return String
-     * @throws Engine_Exception
-     */
-
-    function get_password()
-    {
-        clearos_profile(__METHOD__, __LINE__);
-
-        if (! $this->is_loaded)
-            $this->_load_config();
-
-        return $this->config['password'];
     }
 
     /**
@@ -317,15 +321,15 @@ class Beams extends Engine
         if (! $this->is_loaded)
             $this->_load_config();
 
+        $configs = array('default' => lang('base_default'));
         if (isset($this->config['interface_config']))
-            return json_decode($this->config['interface_config'], TRUE);
+            $configs = array_merge($configs, json_decode($this->config['interface_config'], TRUE));
 
-        $default = array('default' => lang('base_default'));
-        return $default;
+        return $configs;
     }
 
     /**
-     * Update/add a interface configuration options.
+     * Set interface configuration options.
      *
      * @param array $data interface options
      *
@@ -333,7 +337,7 @@ class Beams extends Engine
      * @throws EngineException
      */
 
-    function update_network_conf($data)
+    function set_network_conf($data)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -344,6 +348,8 @@ class Beams extends Engine
             $definitions = json_decode($this->config['interface_config'], TRUE);
             $definitions[key($data)] = $data[key($data)];
             $this->_set_parameter('interface_config', json_encode($definitions));
+        } else {
+            $this->_set_parameter('interface_config', json_encode($data));
         }
     }
 
@@ -485,7 +491,7 @@ class Beams extends Engine
      * @throws Engine_Exception
      */
 
-    function set_hostname($hostname)
+    function set_modem_hostname($hostname)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -495,7 +501,7 @@ class Beams extends Engine
         // Validation
         // ----------
 
-        Validation_Exception::is_valid($this->validate_hostname($hostname));
+        Validation_Exception::is_valid($this->validate_modem_hostname($hostname));
 
         $this->_set_parameter('hostname', $hostname);
     }
@@ -563,7 +569,7 @@ class Beams extends Engine
      * @throws Engine_Exception
      */
 
-    function set_username($username)
+    function set_modem_username($username)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -573,7 +579,7 @@ class Beams extends Engine
         // Validation
         // ----------
 
-        Validation_Exception::is_valid($this->validate_username($username));
+        Validation_Exception::is_valid($this->validate_modem_username($username));
 
         $this->_set_parameter('username', $username);
     }
@@ -587,7 +593,7 @@ class Beams extends Engine
      * @throws Engine_Exception
      */
 
-    function set_password($password)
+    function set_modem_password($password)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -949,10 +955,8 @@ class Beams extends Engine
         if (! $this->is_loaded)
             $this->_load_config();
 
-        if ($power != 0)
-            $this->_set_parameter('power_' . $id, $power);
-        if ($network != 'default')
-            $this->_set_parameter('network_' . $id, $network);
+        $this->_set_parameter('power_' . $id, $power);
+        $this->_set_parameter('ifconfig_' . $id, $network);
     }
 
     /**
@@ -994,7 +998,7 @@ class Beams extends Engine
                 $file->create("webconfig", "webconfig", "0644");
                 $file->add_lines($latlong_est);
             }
-            $mailer = new Mailer();
+            $mailer = new Mail_Notification();
             $hostname = new Hostname();
             $subject = lang('beams_email_notification') . ' - ' . $hostname->get();
             $body = "\n\n" . lang('beams_email_notification') . "\n";
@@ -1097,7 +1101,7 @@ class Beams extends Engine
             if (!$display_all && !$available)
                 continue;
 
-            $ifcnfg = $default['ifcnfg'];
+            $ifcnfg = 'ifcnfg';
             if (isset($this->config['ifconfig_' . $id]))
                 $ifcnfg = $this->config['ifconfig_' . $id];
 
@@ -1206,7 +1210,7 @@ class Beams extends Engine
         }
         if ($found) { 
             $firewall = new Firewall();
-            $firewall->Restart();
+            $firewall->restart();
         }
     }
 
@@ -1237,7 +1241,7 @@ class Beams extends Engine
             $fw->add_rule(sprintf(self::IPTABLES_BLOCK, $nic), self::SAT_BEAM_NOTE . $nic, TRUE, 0);
 
         $firewall = new Firewall();
-        $firewall->Restart();
+        $firewall->restart();
     }
 
     /**
@@ -1537,7 +1541,7 @@ class Beams extends Engine
      * @return boolean  TRUE if valid
      */
 
-    function validate_hostname($hostname)
+    function validate_modem_hostname($hostname)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -1554,7 +1558,7 @@ class Beams extends Engine
      * @return boolean TRUE if username is valid
      */
 
-    function validate_username($username)
+    function validate_modem_username($username)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -1569,7 +1573,7 @@ class Beams extends Engine
      * @return boolean TRUE if password is valid
      */
 
-    function validate_password($password)
+    function validate_modem_password($password)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -1730,6 +1734,147 @@ class Beams extends Engine
 
         if (!preg_match("/^([a-zA-Z0-9_\-\. \@\!\(\)\&\$]+)$/", $nickname))
             return lang('beams_nickname') . " - " . lang('base_invalid');
+    }
+
+    /**
+     * Validation routine for generic description.
+     *
+     * @param string $description description
+     * @return boolean TRUE if description is valid
+     */
+
+    function validate_description($description)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (!preg_match("/^([a-zA-Z0-9_\-\. \@\!\(\)\&\$]+)$/", $description))
+            return lang('base_description') . " - " . lang('base_invalid');
+    }
+
+    /**
+     * Validation routine for network type.
+     *
+     * @param string $bootproto boot proto
+     * @return boolean TRUE if bootproto is valid
+     */
+
+    function validate_bootproto($bootproto)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if ($bootproto != Iface::BOOTPROTO_DHCP && $bootproto != Iface::BOOTPROTO_PPPOE && $bootproto != Iface::BOOTPROTO_STATIC)
+            return lang('network_connection_type') . " - " . lang('base_invalid');
+    }
+
+    /**
+     * Validation routine for hostname.
+     *
+     * @param string $hostname hostname
+     *
+     * @return string error message if hostname is invalid
+     */
+
+    public function validate_hostname($hostname)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (!(Network_Utils::is_valid_hostname_alias($hostname) || Network_Utils::is_valid_hostname($hostname)))
+            return lang('network_hostname_invalid');
+    }
+
+    /**
+     * Validation routine for IP.
+     *
+     * @param string $ip IP address
+     * @return boolean  TRUE if valid
+     */
+
+    function validate_ipaddr($ip)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        $hosts = new Hosts();
+
+        if ($hosts->validate_ip($ip) != NULL)
+            return lang('network_ip') . " - " . lang('base_invalid');
+    }
+
+    /**
+     * Validation routine for netmask.
+     *
+     * @param string $netmask netmask
+     *
+     * @return string error message if netmask is invalid
+     */
+
+    public function validate_netmask($netmask)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! Network_Utils::is_valid_netmask($netmask))
+            return lang('network_netmask_invalid');
+    }
+
+    /**
+     * Validation routine for password.
+     *
+     * @param string $password password
+     *
+     * @return string error message if password is invalid
+     */
+
+    public function validate_password($password)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        // TODO
+    }
+
+    /**
+     * Validation routine for gateway.
+     *
+     * @param string $gateway gateway
+     *
+     * @return string error message if gateway is invalid
+     */
+
+    public function validate_gateway($gateway)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! Network_Utils::is_valid_ip($gateway))
+            return lang('network_gateway_invalid');
+    }
+
+    /**
+     * Validation routine for network MTU.
+     *
+     * @param string $mtu network MTU
+     *
+     * @return string error message if network MTU is invalid
+     */
+
+    public function validate_mtu($mtu)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! preg_match('/^[0-9]+$/', $mtu))
+            return lang('network_mtu_invalid');
+    }
+
+    /**
+     * Validation routine for username.
+     *
+     * @param string $username username
+     *
+     * @return string error message if username is invalid
+     */
+
+    public function validate_username($username)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        // TODO
     }
 
 }

@@ -114,7 +114,13 @@ class Satellites extends ClearOS_Controller
         $data['id'] = $id;
         $data['beam'] = $satellites[$id];
         $data['power_options'] = $this->beams->get_power_options();
-        $data['network_options'] = $this->beams->get_interface_configs();
+        $network_options = $this->beams->get_interface_configs();
+        foreach ($network_options as $key => $value) {
+            if (is_array($value))
+                $data['network_options'][$key] = $key;
+            else
+                $data['network_options'][$key] = $value;
+        }
 
         $this->page->view_form('beams/beam', $data, lang('beams_beams'));
 	}

@@ -47,9 +47,9 @@ if ($form_type === 'edit') {
 
 echo field_input('vessel', $vessel, lang('beams_vessel'), $read_only);
 if ($show_admin) {
-    echo field_input('hostname', $hostname, lang('beams_hostname'), $read_only);
-    echo field_input('username', $username, lang('beams_username'), $read_only);
-    echo field_password('password', ($read_only ? preg_replace('/./', '*', $password) : $password), lang('beams_password'), $read_only);
+    echo field_input('modem_hostname', $modem_hostname, lang('beams_modem_hostname'), $read_only);
+    echo field_input('modem_username', $modem_username, lang('beams_modem_username'), $read_only);
+    echo field_password('modem_password', ($read_only ? preg_replace('/./', '*', $modem_password) : $modem_password), lang('beams_modem_password'), $read_only);
     echo field_dropdown('interface', $interfaces, $interface, lang('network_interface'), $read_only);
 }
 echo field_dropdown('power', $power_options, $power, lang('beams_tx_power'), (!$show_admin || $read_only ? TRUE : FALSE));

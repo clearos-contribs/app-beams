@@ -16,6 +16,8 @@
 // Load dependencies
 ///////////////////////////////////////////////////////////////////////////////
 
+use \clearos\apps\network\Iface as Iface;
+
 $this->lang->load('base');
 $this->lang->load('beams');
 $this->lang->load('network');
@@ -48,20 +50,29 @@ foreach ($configs as $id => $config) {
         continue;
     
     $detail_buttons = button_set(
-        anchor_edit('/app/beams/network/edit/' . $id, 'high'),
-        anchor_delete('/app/beams/network/delete/' . $id, 'low')
+        array(
+            anchor_edit('/app/beams/iface/edit/' . $id, 'high'),
+            anchor_delete('/app/beams/iface/delete/' . $id, 'low')
+        )
     );
 
     ///////////////////////////////////////////////////////////////////////////
     // Item details
     ///////////////////////////////////////////////////////////////////////////
 
-    $item['title'] = $config['name'];
+    $item['title'] = $config['id'];
     $item['anchors'] = $detail_buttons;
+    $protocol = lang('base_unknown');
+    if ($config['bootproto'] == Iface::BOOTPROTO_DHCP)
+        $protocol = lang('network_bootproto_dhcp'); 
+    elseif ($config['bootproto'] == Iface::BOOTPROTO_STATIC)
+        $protocol = lang('network_bootproto_static'); 
+    elseif ($config['bootproto'] == Iface::BOOTPROTO_PPPOE)
+        $protocol = lang('network_bootproto_pppoe'); 
     $item['details'] = array(
-        $config['name'],
+        $id,
         $config['description'],
-        $config['protocol']
+        $protocol
     );
 
     $items[] = $item;

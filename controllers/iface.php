@@ -13,6 +13,12 @@
  */
 
 ///////////////////////////////////////////////////////////////////////////////
+// D E P E N D E N C I E S
+///////////////////////////////////////////////////////////////////////////////
+
+use \clearos\apps\network\Iface as Iface_Library;
+
+///////////////////////////////////////////////////////////////////////////////
 // C L A S S
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -82,10 +88,8 @@ class Iface extends ClearOS_Controller
         $cancel_uri = '/app/beams/network';
 
         if ($confirm != NULL) {
-            $this->squid->delete_time_acl($name);
-            $this->squid->reset(TRUE);
-
-            redirect('/beams/network');
+            $this->beams->delete_network_config($name);
+            redirect('/beams/network/summary');
         }
 
         $items = array($name);
@@ -128,18 +132,62 @@ class Iface extends ClearOS_Controller
         // Set validation rules
         //---------------------
 
-        $this->form_validation->set_policy('name', 'beams/Beams', 'validate_name', TRUE);
-        $this->form_validation->set_policy('time', 'beams/Beams', 'validate_description', TRUE);
+        $this->form_validation->set_policy('nickname', 'beams/Beams', 'validate_nickname', TRUE);
+        $this->form_validation->set_policy('description', 'beams/Beams', 'validate_description', TRUE);
+        $this->form_validation->set_policy('bootproto', 'beams/Beams', 'validate_bootproto', TRUE);
+        if ($this->input->post('bootproto') == Iface_Library::BOOTPROTO_DHCP) { 
+           $this->form_validation->set_policy('hostname', 'beams/Beams', 'validate_hostname', TRUE);
+        } else if ($this->input->post('bootproto') == Iface_Library::BOOTPROTO_STATIC) { 
+           $this->form_validation->set_policy('ipaddr', 'beams/Beams', 'validate_ipaddr', TRUE);
+           $this->form_validation->set_policy('netmask', 'beams/Beams', 'validate_netmask', TRUE);
+           $this->form_validation->set_policy('gateway', 'beams/Beams', 'validate_gateway', TRUE);
+        } else if ($this->input->post('bootproto') == Iface_Library::BOOTPROTO_PPPOE) { 
+           $this->form_validation->set_policy('username', 'beams/Beams', 'validate_username', TRUE);
+           $this->form_validation->set_policy('password', 'beams/Beams', 'validate_password', TRUE);
+           $this->form_validation->set_policy('mtu', 'beams/Beams', 'validate_mtu', TRUE);
+        }
+
         $form_ok = $this->form_validation->run();
+
+        // Extra validation
+        //-----------------
+
+        if ($form_type == 'add' && $form_ok) {
+            $options = $this->beams->get_interface_configs();
+            if (array_key_exists($this->input->post('nickname'), $options)) {
+                $this->form_validation->set_error('nickname', lang('beams_name_non_unique'));
+                $form_ok = FALSE;
+            }
+        }
+
 
         // Handle form submit
         //-------------------
 
-        if (($this->input->post('update') && $form_ok)) {
+        if (($this->input->post('submit') && $form_ok)) {
             try {
+                $setting[$this->input->post('nickname')] = array(
+                    'description' => $this->input->post('description'),
+                    'bootproto' => $this->input->post('bootproto')
+                );
 
+                if ($this->input->post('bootproto') == Iface_Library::BOOTPROTO_DHCP) { 
+                    $setting[$this->input->post('nickname')]['dhcp_hostname'] = $this->input->post('hostname');
+                    $setting[$this->input->post('nickname')]['dhcp_dns'] = $this->input->post('dhcp_dns');
+                } else if ($this->input->post('bootproto') == Iface_Library::BOOTPROTO_STATIC) { 
+                    $setting[$this->input->post('nickname')]['ipaddr'] = $this->input->post('ipaddr');
+                    $setting[$this->input->post('nickname')]['netmask'] = $this->input->post('netmask');
+                    $setting[$this->input->post('nickname')]['gateway'] = $this->input->post('gateway');
+                } else if ($this->input->post('bootproto') == Iface_Library::BOOTPROTO_PPPOE) { 
+                    $setting[$this->input->post('nickname')]['username'] = $this->input->post('username');
+                    $setting[$this->input->post('nickname')]['password'] = $this->input->post('password');
+                    $setting[$this->input->post('nickname')]['mtu'] = $this->input->post('mtu');
+                    $setting[$this->input->post('nickname')]['pppoe_dns'] = $this->input->post('pppoe_dns');
+                }
+                
+                $this->beams->set_network_conf($setting);
                 $this->page->set_status_updated();
-                redirect('/beams/network');
+                redirect('/beams/network/summary');
             } catch (Exception $e) {
                 $this->page->view_exception($e);
                 return;
@@ -147,6 +195,31 @@ class Iface extends ClearOS_Controller
         }
 
         $data['bootprotos'] = $this->iface->get_supported_bootprotos();
+        $data['form_type'] = $form_type;
+        if ($form_type == 'edit' && !$this->input->post('submit')) {
+            $options = $this->beams->get_interface_configs();
+            if (array_key_exists($name, $options)) {
+                $data['nickname'] = $name;
+                $data['description'] = $options[$name]['description'];
+                $data['bootproto'] = $options[$name]['bootproto'];
+                if ($data['bootproto'] == Iface_Library::BOOTPROTO_DHCP) { 
+                    $data['dhcp_hostname'] = $options[$name]['dhcp_hostname'];
+                    $data['dhcp_dns'] = $options[$name]['dhcp_dns'];
+                } else if ($data['bootproto'] == Iface_Library::BOOTPROTO_STATIC) { 
+                    $data['ipaddr'] = $options[$name]['ipaddr'];
+                    $data['netmask'] = $options[$name]['netmask'];
+                    $data['gateway'] = $options[$name]['gateway'];
+                } else if ($data['bootproto'] == Iface_Library::BOOTPROTO_PPPOE) { 
+                    $data['username'] = $options[$name]['username'];
+                    $data['password'] = $options[$name]['password'];
+                    $data['mtu'] = $options[$name]['mtu'];
+                    $data['pppoe_dns'] = $options[$name]['pppoe_dns'];
+                }
+            } else {
+                $this->page->set_message(lang('beams_config_not_found'), 'warning');
+                redirect('/beams');
+            }
+        }
 
         // Load the views
         //---------------
