@@ -143,6 +143,7 @@ class Settings extends ClearOS_Controller
             $data['modem_username'] = $this->beams->get_modem_username();
             $data['modem_password'] = $this->beams->get_modem_password();
             $data['interface'] = $this->beams->get_interface();
+            $data['nickname'] = $this->beams->get_nickname($this->beams->get_interface());
             $data['email_latlong'] = $this->beams->get_email_latlong();
             $data['auto_switch'] = $this->beams->get_auto_switch();
             $data['power'] = $this->beams->get_power();

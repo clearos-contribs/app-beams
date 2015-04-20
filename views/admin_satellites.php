@@ -70,8 +70,8 @@ foreach ($satellites as $id => $satellite) {
         $satellite['name'],
         $satellite['description'],
         $satellite['number'],
-        $satellite['tx_power'],
-        $satellite['network'],
+        ($satellite['power'] == 0 ? lang('beams_modem_default') : $satellite['power'] . ' dbm'),
+        ($satellite['interface_config'] == 'default' ? lang('base_default') : $satellite['interface_config']),
     );
 
     $items[] = $item;

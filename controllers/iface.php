@@ -49,6 +49,12 @@ class Iface extends ClearOS_Controller
         $this->load->library('beams/Beams');
 		$this->lang->load('beams');
 
+        if ($this->session->userdata('username') != 'root') {
+            $this->page->set_message(lang('beams_access_denied'));
+            redirect('/beams');
+            return;
+        }
+
         $data['interfaces'] = $this->beams->get_interface_status();
         $this->page->view_form('beams/network', $data, lang('beams_network_status'));
     }
@@ -79,6 +85,12 @@ class Iface extends ClearOS_Controller
         //---------------
 
         $this->load->library('beams/Beams');
+
+        if ($this->session->userdata('username') != 'root') {
+            $this->page->set_message(lang('beams_access_denied'));
+            redirect('/beams');
+            return;
+        }
 
         // Load dependencies
         //------------------
@@ -128,6 +140,12 @@ class Iface extends ClearOS_Controller
         $this->load->library('network/Iface');
         $this->lang->load('beams');
         $this->lang->load('base');
+
+        if ($this->session->userdata('username') != 'root') {
+            $this->page->set_message(lang('beams_access_denied'));
+            redirect('/beams');
+            return;
+        }
 
         // Set validation rules
         //---------------------
@@ -224,6 +242,6 @@ class Iface extends ClearOS_Controller
         // Load the views
         //---------------
 
-        $this->page->view_form('beams/iface', $data, lang('base_add'));
+        $this->page->view_form('beams/iface', $data, ($form_type == 'add' ? lang('beams_add_network_config') : lang('beams_edit_network_config')));
     }
 }

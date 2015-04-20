@@ -60,6 +60,12 @@ class Network extends ClearOS_Controller
         $this->load->library('beams/Beams');
 		$this->lang->load('beams');
 
+        if ($this->session->userdata('username') != 'root') {
+            $this->page->set_message(lang('beams_access_denied'));
+            redirect('/beams');
+            return;
+        }
+
         $this->form_validation->set_policy('nickname', 'beams/Beams', 'validate_nickname', TRUE);
 
         $form_ok = $this->form_validation->run();
@@ -96,7 +102,42 @@ class Network extends ClearOS_Controller
         $this->load->library('beams/Beams');
 		$this->lang->load('beams');
 
+        if ($this->session->userdata('username') != 'root') {
+            $this->page->set_message(lang('beams_access_denied'));
+            redirect('/beams');
+            return;
+        }
+
         $data['configs'] = $this->beams->get_interface_configs();
         $this->page->view_form('beams/network_configs', $data, lang('beams_network_configs'));
+    }
+
+    /**
+     * Toggle network controller.
+     *
+     * @param string $name name of NIC
+     *
+     * @return void 
+     */
+    function toggle($name)
+    {
+        // Load libraries
+        //---------------
+
+        $this->load->library('beams/Beams');
+		$this->lang->load('beams');
+
+        /*
+        if ($this->session->userdata('username') != 'root') {
+            $this->page->set_message(lang('beams_access_denied'));
+            redirect('/beams');
+            return;
+        }
+        */
+
+        $this->beams->toggle_nic($name);
+        $this->page->set_message(lang('beams_nic_toggle_complete'), 'info');
+        redirect('/beams/network');
+        return;
     }
 }

@@ -51,7 +51,7 @@ echo form_header(lang('network_interface'));
 
 echo fieldset_header(lang('base_information'));
 
-echo field_input('nickname', $nickname, lang('beams_nickname'), $read_only);
+echo field_input('nickname', $nickname, lang('beams_nickname'), ($form_type == 'add' ? $read_only : TRUE));
 echo field_input('description', $description, lang('base_description'), $read_only);
 echo field_dropdown('bootproto', $bootprotos, $bootproto, lang('network_connection_type'), $read_only);
 

@@ -101,8 +101,8 @@ class Beams extends Engine
     const FILE_CONFIG = '/etc/clearos/beams.conf';
     const IPTABLES_BLOCK = 'iptables -I INPUT -i %s -j DROP';
     const FILE_LAT_LONG_CACHE = '/var/clearos/framework/cache/beams-latlong.cache';
-    const FILE_CRONFILE = "app-beams";
-    const FILE_TIMER = "/var/clearos/framework/tmp/beams.timer";
+    const FILE_CRONFILE = 'app-beams';
+    const FILE_TIMER = '/var/clearos/framework/tmp/beams.timer';
     const CMD_NOTIFY_SCRIPT = '/usr/clearos/app/beams/deploy/beam_notification.php';
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -115,7 +115,7 @@ class Beams extends Engine
     private $_data;
     private $_timeout = 10;
     private $_prompt;
-    private $_test = TRUE;
+    private $_test = FALSE;
     private $_test_function = NULL;
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -254,6 +254,27 @@ class Beams extends Engine
         $ifaces = $iface_manager->get_external_interfaces();
         $iface = reset($ifaces);
         return $iface;
+    }
+
+    /**
+     * Returns nickname of NIC.
+     *
+     * @parma String $nic NIC
+     *
+     * @return String
+     * @throws EngineException
+     */
+
+    function get_nickname($nic)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        if (isset($this->config['nickname.' . $nic]) && $this->config['nickname.' . $nic] != $nic)
+            return $this->config['nickname.' . $nic];
+        return NULL;
     }
 
     /**
@@ -1101,11 +1122,11 @@ class Beams extends Engine
             if (!$display_all && !$available)
                 continue;
 
-            $ifcnfg = 'ifcnfg';
+            $ifcnfg = 'default';
             if (isset($this->config['ifconfig_' . $id]))
                 $ifcnfg = $this->config['ifconfig_' . $id];
 
-            $power = $default['power'];
+            $power = 0;
             if (isset($this->config['power_' . $id]))
                 $power = $this->config['power_' . $id];
 
@@ -1208,10 +1229,6 @@ class Beams extends Engine
                 $found = TRUE;
             }
         }
-        if ($found) { 
-            $firewall = new Firewall();
-            $firewall->restart();
-        }
     }
 
     /**
@@ -1240,8 +1257,6 @@ class Beams extends Engine
         if (!$found)
             $fw->add_rule(sprintf(self::IPTABLES_BLOCK, $nic), self::SAT_BEAM_NOTE . $nic, TRUE, 0);
 
-        $firewall = new Firewall();
-        $firewall->restart();
     }
 
     /**

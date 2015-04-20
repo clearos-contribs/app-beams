@@ -88,6 +88,12 @@ class Satellites extends ClearOS_Controller
 
 		$this->lang->load('beams');
 
+        if ($this->session->userdata('username') != 'root') {
+            $this->page->set_message(lang('beams_access_denied'));
+            redirect('/beams');
+            return;
+        }
+
         // Handle form submit
         //-------------------
 
@@ -139,6 +145,12 @@ class Satellites extends ClearOS_Controller
 
 		$this->lang->load('beams');
 
+        if ($this->session->userdata('username') != 'root') {
+            $this->page->set_message(lang('beams_access_denied'));
+            redirect('/beams');
+            return;
+        }
+
         try {
             $data['satellites'] = $this->beams->get_beam_selector_list(TRUE, FALSE);
         } catch (Exception $e) {
@@ -186,6 +198,12 @@ class Satellites extends ClearOS_Controller
         $this->load->library('beams/Beams');
 
 		$this->lang->load('beams');
+
+        if ($this->session->userdata('username') != 'root') {
+            $this->page->set_message(lang('beams_access_denied'));
+            redirect('/beams');
+            return;
+        }
 
         $data['satellites'] = $this->beams->set_acl($id, FALSE);
 
