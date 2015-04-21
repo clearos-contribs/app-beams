@@ -106,4 +106,25 @@ class Modem extends ClearOS_Controller
 
         echo json_encode($output);
     }
+
+    /**
+     * Fetch modem status.
+     *
+     * @return JSON
+     */
+    function status()
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        header('Cache-Control: no-cache, must-revalidate');
+        header('Content-type: application/json');
+
+        // Load libraries
+        //---------------
+
+        $this->load->library('beams/Beams');
+        $output = $this->beams->get_modem_status();
+
+        echo json_encode($output);
+    }
 }

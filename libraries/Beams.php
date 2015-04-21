@@ -238,7 +238,7 @@ class Beams extends Engine
      * Returns interface.
      *
      * @return String
-     * @throws EngineException
+     * @throws Engine_Exception
      */
 
     function get_interface()
@@ -262,7 +262,7 @@ class Beams extends Engine
      * @parma String $nic NIC
      *
      * @return String
-     * @throws EngineException
+     * @throws Engine_Exception
      */
 
     function get_nickname($nic)
@@ -332,7 +332,7 @@ class Beams extends Engine
      * Returns interface configuration options.
      *
      * @return array
-     * @throws EngineException
+     * @throws Engine_Exception
      */
 
     function get_interface_configs()
@@ -355,7 +355,7 @@ class Beams extends Engine
      * @param array $data interface options
      *
      * @return void
-     * @throws EngineException
+     * @throws Engine_Exception
      */
 
     function set_network_conf($data)
@@ -380,7 +380,7 @@ class Beams extends Engine
      * @param string $id network interface ID
      *
      * @return void
-     * @throws EngineException
+     * @throws Engine_Exception
      */
 
     function delete_network_config($id)
@@ -405,12 +405,86 @@ class Beams extends Engine
     }
 
     /**
+     * Returns status of modem.
+     *
+     * @return array
+     * @throws Engine_Exception
+     */
+
+    function get_modem_status()
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        // 0 = Unknown
+        // 1 = OK
+        // 2 = Warning
+        // 3 = Fail
+        $status = array(
+            'state' => 0,
+            'network' => 0,
+            'transmit' => 0,
+            'receive' => 0
+        );
+        try {
+            $output = $this->run_modem_command('tick');
+            foreach ($output as $line) {
+                if (preg_match("/^Time Tick.*/", $line)) {
+                    $status['state'] = 1;
+                    break;
+                }
+            }
+            // If status does not = 1 (OK), set to fail
+            if ($status['state'] == 0)
+                $status['state'] = 3;
+
+            $output = $this->run_modem_command('remotestate');
+            foreach ($output as $line) {
+                if (preg_match("/^\s*Modem State:\s*(.*)$/", $line, $match)) {
+                    $network = trim($match[1]);
+                    if ($network == 'In Network')
+                        $status['network'] = 1;
+                    else if ($network == 'Detected')
+                        $status['network'] = 2;
+                    else if ($network == 'Waiting for RXer Lock')
+                        $status['network'] = 3;
+                } else if (preg_match("/^\s*RXer Lock:\s*(.*)$/", $line, $match)) {
+                    $receiver = trim($match[1]);
+                    if ($receiver == 'LOCKED')
+                        $status['receive'] = 1;
+                    else
+                        $status['receive'] = 2;
+                } else if (preg_match("/^\s*TXer State:\s*(.*)$/", $line, $match)) {
+                    $transmit = trim($match[1]);
+                    if ($transmit == 'ON')
+                        $status['transmit'] = 1;
+                }
+            }
+            if ($status['transmit'] == 0) {
+                $output = $this->run_modem_command('tx status');
+                foreach ($output as $line) {
+                    if (preg_match("/^\s*tx status Not Muted.*$/", $line)) {
+                        $status['transmit'] = 2;
+                        break;
+                    }
+                }
+            }
+            
+        } catch (Exception $e) {
+            clearos_log('beams', "Error getting modem status: " . clearos_exception_message($e));
+        }
+        return $status;
+    }
+
+    /**
      * Returns TX Power.
      *
      * @param boolean $default use modem default
      *
      * @return String
-     * @throws EngineException
+     * @throws Engine_Exception
      */
 
     function get_power($default = FALSE)
@@ -558,7 +632,7 @@ class Beams extends Engine
      * @param $interval interval
      *
      * @return void
-     * @throws EngineException
+     * @throws Engine_Exception
      */
 
     function set_position_report($interval)
@@ -659,7 +733,7 @@ class Beams extends Engine
      * @param $id beam ID
      *
      * @return void
-     * @throws EngineException
+     * @throws Engine_Exception
      */
 
     function seset_beam($id)
@@ -757,7 +831,7 @@ class Beams extends Engine
      * @param int $power power
      *
      * @return void
-     * @throws EngineException
+     * @throws Engine_Exception
      */
 
     function set_power($power)
@@ -891,7 +965,7 @@ class Beams extends Engine
      * @param $interface interface
      *
      * @return void
-     * @throws EngineException
+     * @throws Engine_Exception
      */
 
     function set_interface($interface)
@@ -1061,10 +1135,10 @@ class Beams extends Engine
         for ($index = -1; $index >= -50; $index--) {
             $text = '';
             if ($index == -50)
-                $text = ' (' . lang('beams_minimum') . ')';
+                $text = '(' . lang('beams_minimum') . ')';
             else if ($index == -1)
-                $text = ' (' . lang('beams_maximum') . ')';
-            $power_levels[$index] = $index . $text;
+                $text = '(' . lang('beams_maximum') . ')';
+            $power_levels[$index] = $index . ' dbm ' . $text;
         }
         return $power_levels;
     }
@@ -1200,11 +1274,16 @@ class Beams extends Engine
         $commands = array(
             '0' => lang('beams_select_command'),
             'beamselector list' => lang('beams_cmd_selector_list'),
-            'rx snr' => lang('beams_cmd_rx_snr'),
-            'spoof dump' => lang('beams_cmd_spoof_dump'),
             'latlong' => lang('beams_cmd_latlong'),
+            'rx snr' => lang('beams_cmd_rx_snr'),
+            'remotestate' => lang('beams_cmd_remote_state'),
+            'rmtstat' => lang('beams_cmd_rmtstat'),
+            'rx freq' => lang('beams_cmd_receive_freq'),
+            'rx power' => lang('beams_cmd_receive_power'),
+            'spoof dump' => lang('beams_cmd_spoof_dump'),
+            'tx freq' => lang('beams_cmd_transmit_freq'),
+            'tx power' => lang('beams_cmd_transmit_power'),
             'version' => lang('beams_cmd_version'),
-            'rmtstat' => lang('beams_cmd_rmtstat')
         );
         return $commands;
     }

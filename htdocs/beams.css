@@ -24,3 +24,12 @@
   min-height: 200px;
   white-space: pre-line;
 }
+.beams-status-green {
+  color: #33cc33;
+}
+.beams-status-orange {
+  color: #ff9900;
+}
+.beams-status-red {
+  color: #ff3333;
+}

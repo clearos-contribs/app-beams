@@ -27,8 +27,16 @@ header('Content-Type: application/x-javascript');
 ?>
 
 var lang_warning = '<?php echo lang('base_warning'); ?>';
+var lang_status = '<?php echo lang('beams_modem_status'); ?>';
+var lang_network = '<?php echo lang('base_network'); ?>';
+var lang_transmit = '<?php echo lang('beams_transmit'); ?>';
+var lang_receive = '<?php echo lang('beams_receive'); ?>';
 
 $(document).ready(function() {
+    clearos_add_sidebar_pair(lang_receive, '<i id="beams_receive" class="fa fa-circle"></i>');
+    clearos_add_sidebar_pair(lang_transmit, '<i id="beams_transmit" class="fa fa-circle"></i>');
+    clearos_add_sidebar_pair(lang_network, '<i id="beams_network" class="fa fa-circle"></i>');
+    clearos_add_sidebar_pair(lang_status, '<i id="beams_status" class="fa fa-circle"></i>');
     set_interface_fields();
     if ($('#net_name').length > 0) {
         toggle_network_type();
@@ -43,6 +51,7 @@ $(document).ready(function() {
     $('#bootproto').change(function() {
         set_interface_fields();
     });
+    get_modem_status();
 });
 
 function execute_command(command) {
@@ -106,6 +115,30 @@ function set_interface_fields() {
         $('#mtu_field').show();
         $('#pppoe_dns_field').show();
     }
+}
+
+function get_modem_status() {
+    $.ajax({
+        type: 'GET',
+        dataType: 'json',
+        url: '/app/beams/modem/status',
+        success: function(json) {
+            console.log(json);
+            if (json != undefined) {
+                // Status
+                if (json.state == 1)
+                    $('#beams_status').addClass('beams-status-green');
+                else if (json.state == 3)
+                    $('#beams_status').addClass('beams-status-red');
+                // Network
+                if (json.network == 1)
+                    $('#beams_network').addClass('beams-status-green');
+                else if (json.network == 3)
+                    $('#beams_network').addClass('beams-status-red');
+            }
+            window.setTimeout(get_modem_status, 1000);
+        }
+    });
 }
 
 // vim: syntax=javascript ts=4
