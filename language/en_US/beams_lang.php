@@ -13,7 +13,6 @@ $lang['beams_auto_switch_updated_disabled'] = 'Auto beam switching has been disa
 $lang['beams_auto_switch_updated_enabled'] = 'Auto switching has been enabled.  Your modem will now be reset - please wait a few minutes before trying to connect to the Internet.';
 $lang['beams_beam_switch_failed'] = 'Beam switch failed.';
 $lang['beams_beams'] = 'Satellite Beams';
-$lang['beams_controls'] = 'Controls';
 $lang['beams_cmd_latlong'] = 'Latitude/Longitude';
 $lang['beams_cmd_rmtstat'] = 'RMT Status';
 $lang['beams_cmd_rx_snr'] = 'Receive SNR';

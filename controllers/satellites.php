@@ -228,19 +228,23 @@ class Satellites extends ClearOS_Controller
 
         $data = array(
             'id' => $id,
-            'confirm' => rand(0, 10000)
+            'confirm' => $this->session->userdata('switch_confirm')
         );
-        if ($confirm != NULL && $confirm == $this->session->userdata('switch_beam')) {
+        if ($confirm != NULL && $confirm == $this->session->userdata('switch_confirm')) {
             try {
                 $this->beams->set_beam($id);
                 $this->page->set_message(lang('beams_switch_in_progress'));
                 redirect('/beams');
                 return;
             } catch (Exception $e) {
-                $data['modem_connect_failed'] = clearos_exception_message($e); 
+                $data['modem_connect_failed'] = clearos_exception_message($e);
             }
+        } else if (!$this->session->userdata('switch_confirm')) {
+            $this->session->set_userdata(array('switch_confirm' => rand(0, 10000)));
+            redirect('/beams/satellites/switch_beam/' . $id);
+            return;
         }
-        $this->session->set_userdata(array('switch_beam' => $data['confirm']));
+
         $this->page->view_form('beams/switch_beam', $data, lang('beams_switch_beam'));
     }
 
