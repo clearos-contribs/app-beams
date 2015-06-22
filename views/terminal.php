@@ -19,7 +19,6 @@
 $this->lang->load('base');
 $this->lang->load('beams');
 
-echo "<div class='beams-terminal-commands'>";
 echo field_dropdown('command', $commands, $command, lang('beams_send_modem_command'), FALSE);
-echo "</div>";
-echo "<div id='terminal_out'></div>";
+echo box_open(NULL, array('id' => 'terminal_out'));
+echo box_close();

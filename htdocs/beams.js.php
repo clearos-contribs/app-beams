@@ -33,25 +33,10 @@ var lang_transmit = '<?php echo lang('beams_transmit'); ?>';
 var lang_receive = '<?php echo lang('beams_receive'); ?>';
 
 $(document).ready(function() {
-    $('tbody', $('#sidebar_summary_table')).append(
-        '<tr>' +
-        '  <td><b>' + lang_receive + '</b></td>' +
-        '  <td><i id="beams_receive" class="fa fa-circle"></i></td>' +
-        '</tr>' +
-        '<tr>' +
-        '  <td><b>' + lang_transmit + '</b></td>' +
-        '  <td><i id="beams_transmit" class="fa fa-circle"></i></td>' +
-        '</tr>' +
-        '<tr>' +
-        '  <td><b>' + lang_network + '</b></td>' +
-        '  <td><i id="beams_network" class="fa fa-circle"></i></td>' +
-        '</tr>' +
-        '<tr>' +
-        '  <td><b>' + lang_status + '</b></td>' +
-        '  <td><i id="beams_status" class="fa fa-circle"></i></td>' +
-        '</tr>'
-    );
-
+    clearos_add_sidebar_pair(lang_receive, '<i id="beams_receive" class="fa fa-circle"></i>');
+    clearos_add_sidebar_pair(lang_transmit, '<i id="beams_transmit" class="fa fa-circle"></i>');
+    clearos_add_sidebar_pair(lang_network, '<i id="beams_network" class="fa fa-circle"></i>');
+    clearos_add_sidebar_pair(lang_status, '<i id="beams_status" class="fa fa-circle"></i>');
     set_interface_fields();
     if ($('#net_name').length > 0) {
         toggle_network_type();
@@ -70,7 +55,11 @@ $(document).ready(function() {
 });
 
 function execute_command(command) {
-    $('#terminal_out').html('<div class="theme-loading-small" id="terminal_wait"></div>');
+    var options = new Object;
+    options.center = true;
+    options.id = 'terminal_wait';
+
+    $('#terminal_out').html(clearos_loading(options));
     $.ajax({
         dataType: 'json',
         url: '/app/beams/modem/execute',

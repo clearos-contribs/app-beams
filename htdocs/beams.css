@@ -33,16 +33,3 @@
 .beams-status-red {
   color: #ff3333;
 }
-#beam-controls tr.theme-form-header > td {
-  text-align: left;
-}
-#beam-controls td {
-  text-align: center;
-}
-#beam-controls a {
-  width: 170px;
-}
-.beams-terminal-commands {
-  margin: 15px;
-  text-align: center;
-}
