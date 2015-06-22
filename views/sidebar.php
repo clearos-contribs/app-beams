@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Terminal view.
+ * Beam Sidebar view.
  *
  * @category   apps
  * @package    beams
@@ -16,10 +16,10 @@
 // Load dependencies
 ///////////////////////////////////////////////////////////////////////////////
 
-$this->lang->load('base');
 $this->lang->load('beams');
 
-echo "<div class='beams-terminal-commands'>";
-echo field_dropdown('command', $commands, $command, lang('beams_send_modem_command'), FALSE);
-echo "</div>";
-echo "<div id='terminal_out'></div>";
+echo sidebar_header(lang('beams_controls'), array('id' => 'beam-controls'));
+echo sidebar_text(anchor_custom('/app/beams/network', lang('beams_network_status')));
+echo sidebar_text(anchor_custom('/app/beams/modem/terminal', lang('beams_terminal')));
+echo sidebar_text(anchor_custom('/app/beams/modem/reboot', lang('beams_reboot_modem')));
+echo sidebar_footer();
