@@ -155,7 +155,19 @@ class Beams extends Engine
         if ($this->_test)
             $this->_test_function = "run_modem_command: " . $command;
 
-        $this->_read_to($this->_prompt);
+        if ($command == 'rmtstat') {
+            $this->_read_to($this->_prompt);
+            if (preg_match("/.*OFF.*/", $this->_data)) {
+                $this->_send($command);
+            }
+            $this->_read_to('ONTIMER', TRUE);
+            // Send command again to turn it off
+            $this->_send($command);
+            $this->_read_to($this->_prompt);
+        } else {
+            $this->_read_to($this->_prompt);
+        }
+
         $this->_data = explode("\n", $this->_data);
         foreach ($this->_data as $mydata) {
             if (preg_match('/^\\[.*telnet.*\d/', $mydata))
@@ -1584,10 +1596,14 @@ class Beams extends Engine
     * Read from socket until $char
     * @param string $char Single character (only the first character of the string is read)
     */
-    private function _read_to($char) 
+    private function _read_to($char, $reset = FALSE) 
     {
         clearos_profile(__METHOD__, __LINE__);
 
+        if ($char == 'ONTIMER') {
+            stream_set_blocking($this->_connection, TRUE);
+            stream_set_timeout($this->_connection, 20);
+        }
         if ($this->_test) {
             if ($this->_test_function == 'get_beam_selector_list')
                 $this->_data = "12 is currently selected.\n";
@@ -1607,18 +1623,26 @@ class Beams extends Engine
         }
 
         // Reset $_data
-        $this->_data = "";
-        $index=0;
+        if ($reset)
+            $this->_data = "";
+        $start = time();
+
         while (($c = fgetc($this->_connection)) !== FALSE) {
             $this->_data .= $c;
-            if ($c == $char[0]) {
+            if ($char != 'ONTIMER' && $c == $char[0]) {
                 if ($char[0] == '>' && substr($this->_data, -2, 1) != "\n") {
                     continue;
                 } else {
                     break;
                 }
             }
-            $index++;
+            // If time connected greater than 20 seconds, get out of loop
+            if ((time() - $start) >= 20) {
+                stream_set_blocking($this->_connection, FALSE);
+                stream_set_timeout($this->_connection, 3);
+                break;
+            }
+
         }
         $this->_data = str_replace(chr(8), "", $this->_data);
         if (strpos($this->_data, '% Invalid input detected') !== FALSE) $this->_data = FALSE;

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Beams controller.
+ * Report controller.
  *
  * @category   apps
  * @package    beams
@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * Beams controller.
+ * Report controller.
  *
  * @category   apps
  * @package    beams
@@ -28,25 +28,24 @@
  * @link       http://www.clearcenter.com/support/documentation/clearos/beams/
  */
 
-class Beams extends ClearOS_Controller
+class Report extends ClearOS_Controller
 {
-	/**
-	 * Beams server overview.
-	 */
+    /**
+     * Beams controls sidebar.
+     *
+     * @return view
+     */
 
-	function index()
-	{
-		// Load libraries
-		//---------------
+    function sidebar()
+    {
+        // Load dependencies
+        //------------------
 
-		$this->lang->load('beams');
+        $this->lang->load('beams');
 
-		// Load views
-		//-----------
+        // Load views
+        //-----------
 
-        $controllers = array('beams/settings', 'beams/satellites');
-
-        $options = array();
-        $this->page->view_controllers($controllers, lang('beams_app_name'), $options);
-	}
+        $this->page->view_form('sidebar', array(), lang('beams_controls'));
+    }
 }

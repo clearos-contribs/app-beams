@@ -159,7 +159,7 @@ class Satellites extends ClearOS_Controller
         $data['autoswitch'] = $this->beams->get_auto_switch();
         $data['show_admin'] = ($this->session->userdata('username') === 'root') ? TRUE : FALSE;
 
-        $this->page->view_form('beams/admin_satellites', $data, lang('beams_beams'));
+        $this->page->view_form('beams/admin_satellites', $data, lang('beams_beams'), array('type' => MY_Page::TYPE_WIDE_CONFIGURATION));
 	}
 
     /**
@@ -223,12 +223,13 @@ class Satellites extends ClearOS_Controller
         // Load libraries
         //---------------
 
+        $this->load->library('session');
         $this->load->library('beams/Beams');
 		$this->lang->load('beams');
 
         $data = array(
             'id' => $id,
-            'confirm' => $this->session->userdata('switch_confirm')
+            'confirm' => $this->session->userdata('switch_confirm') 
         );
         if ($confirm != NULL && $confirm == $this->session->userdata('switch_confirm')) {
             try {
@@ -237,14 +238,13 @@ class Satellites extends ClearOS_Controller
                 redirect('/beams');
                 return;
             } catch (Exception $e) {
-                $data['modem_connect_failed'] = clearos_exception_message($e);
+                $data['modem_connect_failed'] = clearos_exception_message($e); 
             }
         } else if (!$this->session->userdata('switch_confirm')) {
             $this->session->set_userdata(array('switch_confirm' => rand(0, 10000)));
             redirect('/beams/satellites/switch_beam/' . $id);
             return;
         }
-
         $this->page->view_form('beams/switch_beam', $data, lang('beams_switch_beam'));
     }
 
