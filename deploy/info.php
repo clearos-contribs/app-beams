@@ -5,7 +5,7 @@
 /////////////////////////////////////////////////////////////////////////////
 
 $app['basename'] = 'beams';
-$app['version'] = '1.0.1';
+$app['version'] = '1.1.2';
 $app['release'] = '1';
 $app['vendor'] = 'Marine VSAT';
 $app['packager'] = 'ClearFoundation';

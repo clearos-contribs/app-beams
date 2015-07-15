@@ -40,6 +40,7 @@ clearos_load_language('beams');
 
 use \clearos\apps\base\Engine as Engine;
 use \clearos\apps\base\Configuration_File as Configuration_File;
+use \clearos\apps\base\Daemon as Daemon;
 use \clearos\apps\base\File as File;
 use \clearos\apps\base\Folder as Folder;
 use \clearos\apps\base\Shell as Shell;
@@ -55,6 +56,7 @@ use \clearos\apps\tasks\Cron as Cron;
 clearos_load_library('base/Engine');
 clearos_load_library('base/Configuration_File');
 clearos_load_library('base/File');
+clearos_load_library('base/Daemon');
 clearos_load_library('base/Folder');
 clearos_load_library('base/Shell');
 clearos_load_library('date/NTP_Time');
@@ -1427,7 +1429,7 @@ class Beams extends Engine
         // Restart syswatch
         //-----------------
     
-        $syswatch = new Syswatch();
+        $syswatch = new Daemon('syswatch');
         $syswatch->reset();
 
         // Set Modem IP
