@@ -75,15 +75,15 @@ class Modem extends ClearOS_Controller
         $this->load->library('beams/Beams');
 		$this->lang->load('beams');
 
-        if ($confirm != NULL && $confirm == $this->session->userdata('reboot_modem')) {
+        if ($confirm != NULL && $confirm == md5($this->session->userdata('session_id'))) {
             $this->beams->reboot_modem();
             $this->page->set_message(lang('beams_modem_reboot_started'));
             redirect('/beams');
             return;
         }
-        $data = array('confirm' => rand(0, 10000));
-        $this->session->set_userdata(array('reboot_modem' => $data['confirm']));
+        $data = array('confirm' => md5($this->session->userdata('session_id')));
         $this->page->view_form('beams/reboot_modem', $data, lang('beams_reboot_modem'));
+
     }
 
     /**

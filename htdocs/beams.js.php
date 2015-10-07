@@ -136,7 +136,11 @@ function get_modem_status() {
                 else if (json.network == 3)
                     $('#beams_network').addClass('beams-status-red');
             }
-            window.setTimeout(get_modem_status, 1000);
+            window.setTimeout(get_modem_status, 30000);
+        },
+        error: function(xhr, text, err) {
+            console.log('Error ' + xhr.responseText.toString());
+            window.setTimeout(get_modem_status, 30000);
         }
     });
 }
