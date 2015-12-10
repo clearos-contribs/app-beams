@@ -1,7 +1,7 @@
 
 Name: app-beams
 Epoch: 1
-Version: 1.0.1
+Version: 1.1.3
 Release: 1%{dist}
 Summary: Beam Manager
 License: GPLv3

@@ -1697,7 +1697,7 @@ class Beams extends Engine
     {
         clearos_profile(__METHOD__, __LINE__);
 
-        if (!preg_match("/^([a-zA-Z0-9_\-\.\$]+)$/", $password))
+        if (!preg_match("/^([a-zA-Z0-9_\-\.\$\@\!]+)$/", $password))
             return lang('beams_password') . " - " . lang('base_invalid');
 
     }

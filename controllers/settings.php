@@ -122,7 +122,7 @@ class Settings extends ClearOS_Controller
 
         $data = array();
         try {
-            $ifaces = $this->iface_manager->get_external_interfaces();
+            $ifaces = $this->iface_manager->get_interfaces();
             $interface = $this->beams->get_interface();
 
             foreach($ifaces as $iface)
