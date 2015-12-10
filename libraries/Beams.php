@@ -43,9 +43,10 @@ use \clearos\apps\base\Configuration_File as Configuration_File;
 use \clearos\apps\base\File as File;
 use \clearos\apps\base\Folder as Folder;
 use \clearos\apps\base\Shell as Shell;
-use \clearos\apps\date\NTP_Time as NTP_Time;
+use \clearos\apps\date\Time as Time;
 use \clearos\apps\firewall_custom\Firewall_Custom as Firewall_Custom;
 use \clearos\apps\network\Hosts as Hosts;
+use \clearos\apps\network\Hostname as Hostname;
 use \clearos\apps\network\Network_Utils as Network_Utils;
 use \clearos\apps\network\Iface as Iface;
 use \clearos\apps\network\Iface_Manager as Iface_Manager;
@@ -57,9 +58,10 @@ clearos_load_library('base/Configuration_File');
 clearos_load_library('base/File');
 clearos_load_library('base/Folder');
 clearos_load_library('base/Shell');
-clearos_load_library('date/NTP_Time');
+clearos_load_library('date/Time');
 clearos_load_library('firewall_custom/Firewall_Custom');
 clearos_load_library('network/Hosts');
+clearos_load_library('network/Hostname');
 clearos_load_library('network/Network_Utils');
 clearos_load_library('network/Iface');
 clearos_load_library('network/Iface_Manager');
@@ -103,7 +105,7 @@ class Beams extends Engine
     const FILE_LAT_LONG_CACHE = '/var/clearos/framework/cache/beams-latlong.cache';
     const FILE_CRONFILE = 'app-beams';
     const FILE_TIMER = '/var/clearos/framework/tmp/beams.timer';
-    const CMD_NOTIFY_SCRIPT = '/usr/clearos/app/beams/deploy/beam_notification.php';
+    const CMD_NOTIFY_SCRIPT = '/usr/clearos/apps/beams/deploy/beam_notification.php';
 
     ///////////////////////////////////////////////////////////////////////////////
     // V A R I A B L E S
@@ -308,7 +310,9 @@ class Beams extends Engine
         if (! $this->is_loaded)
             $this->_load_config();
 
-        return $this->config['auto_switch'];
+        if (isset($this->config['auto_switch']))
+            return $this->config['auto_switch'];
+        return FALSE;
     }
 
     /**
@@ -1098,8 +1102,8 @@ class Beams extends Engine
             $subject = lang('beams_email_notification') . ' - ' . $hostname->get();
             $body = "\n\n" . lang('beams_email_notification') . "\n";
             $body .= str_pad('', strlen(lang('beams_email_notification')), '=') . "\n\n";
-            $ntptime = new NTP_Time();
-            date_default_timezone_set($ntptime->get_time_zone());
+            $time = new Time();
+            date_default_timezone_set($time->get_time_zone());
 
             $thedate = strftime("%b %e %Y");
             $thetime = strftime("%T %Z");
@@ -1109,8 +1113,8 @@ class Beams extends Engine
             $body .= str_pad(lang('beams_google_earth') . ':', 12) . "\t" . "https://maps.google.com/maps?hl=en&q=" . str_replace(" ", "+", $latlong) . "\n";
             foreach($email as $recipient)
                 $mailer->add_recipient($recipient);
-            $mailer->set_subject($subject);
-            $mailer->set_body($body);
+            $mailer->set_message_subject($subject);
+            $mailer->set_message_body($body);
             $mailer->set_sender($mailer->get_sender());
             $mailer->send();
             echo "Notification sent.\n";
