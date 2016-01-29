@@ -19,6 +19,7 @@
 $this->lang->load('beams');
 
 echo sidebar_header(lang('beams_controls'), array('id' => 'beam-controls'));
+echo sidebar_text(anchor_custom('/app/beams/modem/lock_beam', lang('beams_lock_beam'), 'important', array('id' => 'lock_beam')));
 echo sidebar_text(anchor_custom('/app/beams/network', lang('beams_network_status')));
 echo sidebar_text(anchor_custom('/app/beams/modem/terminal', lang('beams_terminal')));
 echo sidebar_text(anchor_custom('/app/beams/modem/reboot', lang('beams_reboot_modem')));

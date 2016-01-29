@@ -23,7 +23,10 @@ $this->lang->load('beams');
 // Anchors
 ///////////////////////////////////////////////////////////////////////////////
 
-$anchors = array(anchor_cancel('/app/beams'));
+$anchors = array(
+    anchor_custom('/app/beams', lang('base_back'), 'high'),
+    anchor_add('/app/beams/satellites/add')
+);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Headers
@@ -47,6 +50,7 @@ foreach ($satellites as $id => $satellite) {
         $detail_buttons = button_set(
             array(
                 anchor_custom('/app/beams/satellites/disable/' . $id, lang('base_disable'), 'high'),
+                anchor_delete('/app/beams/satellites/delete/' . $id, 'low'),
                 anchor_edit('/app/beams/satellites/edit/' . $id, 'low')
             )
         );
@@ -54,6 +58,7 @@ foreach ($satellites as $id => $satellite) {
         $detail_buttons = button_set(
             array(
                 anchor_custom('/app/beams/satellites/enable/' . $id, lang('base_enable'), 'high'),
+                anchor_delete('/app/beams/satellites/delete/' . $id, 'low'),
                 anchor_edit('/app/beams/satellites/edit/' . $id, 'low')
             )
         );
@@ -83,6 +88,7 @@ foreach ($satellites as $id => $satellite) {
 
 $options = array(
     'id' => 'satellite_admin_list',
+    'default_rows' => 100,
     'responsive' => array(0 => 'none', 4 => 'none', 5 => 'none')
 );
 

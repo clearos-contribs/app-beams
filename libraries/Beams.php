@@ -878,7 +878,10 @@ class Beams extends Engine
                 $this->_send('tx power ' . $power);
         }
 
-        $this->_set_parameter('power_' . $id, $power);
+        $my_beams = json_decode($this->config['beams'], TRUE);
+        $my_beams[$id]['power'] = $power;
+
+        $this->_set_parameter('beams', json_encode($my_beams));
     }
 
     /**
@@ -1026,6 +1029,28 @@ class Beams extends Engine
     }
 
     /**
+     * Delete Beam ACL.
+     *
+     * @param string  $id Beam ID
+     *
+     * @return void
+     * @throws Engine_Exception
+     */
+
+    function delete_satellite($id)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        $my_beams = json_decode($this->config['beams'], TRUE);
+        unset($my_beams[$id]);
+
+        $this->_set_parameter('beams', json_encode($my_beams));
+    }
+
+    /**
      * Set Beam ACL.
      *
      * @param string  $id Beam ID
@@ -1042,26 +1067,66 @@ class Beams extends Engine
         if (! $this->is_loaded)
             $this->_load_config();
 
-        $settings = json_decode($this->config['acl'], TRUE);
-        if ($settings == NULL || $settings === FALSE)
-            $settings = array();
-        $settings[$id] = $enable;
+        $my_beams = json_decode($this->config['beams'], TRUE);
+        $my_beams[$id]['available'] = $enable;
 
-        $this->_set_parameter('acl', json_encode($settings));
+        $this->_set_parameter('beams', json_encode($my_beams));
     }
 
     /**
-     * Set Beam Defaults.
+     * Add Beam
      *
-     * @param string  $id      Beam ID
-     * @param int     $power   Power
-     * @param string  $network Network
+     * @param int     $power       Power
+     * @param string  $network     Network
+     * @param string  $number      Number
+     * @param string  $position    Position
+     * @param string  $description Description
+     * @param string  $available   Available
      *
      * @return void
      * @throws Engine_Exception
      */
 
-    function set_beam_defaults($id, $power, $network)
+    function add_beam($provider, $name, $number, $position, $description, $network, $tx, $available)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (! $this->is_loaded)
+            $this->_load_config();
+
+        $id = $provider . '_' . $name;
+        $my_beams = json_decode($this->config['beams'], TRUE);
+        if (array_key_exists($id, $my_beams))
+            throw new Engine_Exception("Beam definition already exists - provider and name combination must be unique.", CLEAROS_ERROR);
+        $my_beams[$id]['provider'] = $provider;
+        $my_beams[$id]['name'] = $name;
+        $my_beams[$id]['number'] = $number;
+        $my_beams[$id]['position'] = $position;
+        $my_beams[$id]['description'] = $description;
+        $my_beams[$id]['network'] = $network;
+        $my_beams[$id]['tx'] = $tx;
+        $my_beams[$id]['available'] = $available;
+        $this->_set_parameter('ifconfig_' . $id, $network);
+        $this->_set_parameter('power_' . $id, $tx);
+        $this->_set_parameter('beams', json_encode($my_beams));
+    }
+
+    /**
+     * Set Beam Defaults.
+     *
+     * @param string  $id          Beam ID
+     * @param int     $power       Power
+     * @param string  $network     Network
+     * @param string  $number      Number
+     * @param string  $position    Position
+     * @param string  $description Description
+     * @param string  $available   Available
+     *
+     * @return void
+     * @throws Engine_Exception
+     */
+
+    function set_beam_defaults($id, $power, $network, $number, $position, $description, $available)
     {
         clearos_profile(__METHOD__, __LINE__);
 
@@ -1070,6 +1135,12 @@ class Beams extends Engine
 
         $this->_set_parameter('power_' . $id, $power);
         $this->_set_parameter('ifconfig_' . $id, $network);
+        $my_beams = json_decode($this->config['beams'], TRUE);
+        $my_beams[$id]['number'] = $number;
+        $my_beams[$id]['position'] = $position;
+        $my_beams[$id]['description'] = $description;
+        $my_beams[$id]['available'] = $available;
+        $this->_set_parameter('beams', json_encode($my_beams));
     }
 
     /**
@@ -1175,15 +1246,11 @@ class Beams extends Engine
     {
         clearos_profile(__METHOD__, __LINE__);
 
-        $info_file = clearos_app_base('beams') . '/deploy/base_list.php';
-
-        if (file_exists($info_file))
-            include $info_file;
-        else
-            $BEAMS = array();
-
         if (! $this->is_loaded)
             $this->_load_config();
+
+        $my_beams = json_decode($this->config['beams'], TRUE);
+
         $result = array();
         if ($get_selected) {
             try {
@@ -1205,39 +1272,26 @@ class Beams extends Engine
                 break;
             }
         }
-        $acl = json_decode($this->config['acl'], TRUE);
-        foreach ($BEAMS as $beam) {
-            $id = $beam[0] . '_' . $beam[1];
-            $available = FALSE;
-            if ($acl != NULL && $acl !== FALSE && array_key_exists($id, $acl) && $acl[$id])
-                $available = TRUE;
-            if (!$display_all && !$available)
+        foreach ($my_beams as $id => $beam) {
+            $available = $beam['available'];
+            if (!$display_all && !$available) {
+                unset($my_beams[$id]);
                 continue;
+            }
 
-            $ifcnfg = 'default';
+            $beam['interface_config'] = 'default';
             if (isset($this->config['ifconfig_' . $id]))
-                $ifcnfg = $this->config['ifconfig_' . $id];
+                $beam['interface_config'] = $this->config['ifconfig_' . $id];
 
-            $power = 0;
+            $beam['power'] = 0;
             if (isset($this->config['power_' . $id]))
-                $power = $this->config['power_' . $id];
+                $beam['power'] = $this->config['power_' . $id];
 
-            $result[$beam[0] . '_' . $beam[1]] = array(
-                'provider' => $beam[0],
-                'number' => $beam[1],
-                'name' => $beam[2],
-                'position' => $beam[3],
-                'description' => $beam[4],
-                'selected' => ($selected == $beam[1] ? TRUE : FALSE),
-                'region' => $beam[5],
-                'power' => $power,
-                'interface_config' => $ifcnfg,
-                'available' => $available
-            );
-
+            $beam['selected'] = ($selected == $beam['number'] ? TRUE : FALSE);
+            $my_beams[$id] = $beam;
         }
 
-        return $result;
+        return $my_beams;
     }
 
     /**
@@ -1676,6 +1730,66 @@ class Beams extends Engine
     }
 
     /**
+     * Validation routine for position.
+     *
+     * @param string $position position
+     * @return boolean TRUE if position is valid
+     */
+
+    function validate_position($position)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (FALSE)
+            return 'Beam position' . " - " . lang('base_invalid');
+    }
+
+    /**
+     * Validation routine for provider.
+     *
+     * @param string $provider provider
+     * @return boolean TRUE if provider is valid
+     */
+
+    function validate_provider($provider)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (!isset($provider) || !preg_match("/^([a-zA-Z0-9]+)$/", $provider))
+            return 'Beam provider' . " - " . lang('base_invalid');
+    }
+
+    /**
+     * Validation routine for name.
+     *
+     * @param string $name name
+     * @return boolean TRUE if name is valid
+     */
+
+    function validate_name($name)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (!isset($name) || !preg_match("/^([a-zA-Z0-9]+)$/", $name))
+            return 'Beam name' . " - " . lang('base_invalid');
+    }
+
+    /**
+     * Validation routine for number.
+     *
+     * @param string $number number
+     * @return boolean TRUE if number is valid
+     */
+
+    function validate_number($number)
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        if (!isset($number) || !preg_match("/^([a-zA-Z0-9\\-\\_\s]+)$/", $number))
+            return 'Beam number' . " - " . lang('base_invalid');
+    }
+
+    /**
      * Validation routine for username.
      *
      * @param string $username username
@@ -1767,6 +1881,7 @@ class Beams extends Engine
 
         $list = array(
             'beamselector list',
+            'beamselector lock',
             'rx snr',
             'spoof dump',
             'latlong',

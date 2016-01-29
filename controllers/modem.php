@@ -127,4 +127,26 @@ class Modem extends ClearOS_Controller
 
         echo json_encode($output);
     }
+
+    /**
+     * Lock beam.
+     *
+     * @return JSON
+     */
+    function lock_beam()
+    {
+        clearos_profile(__METHOD__, __LINE__);
+
+        header('Cache-Control: no-cache, must-revalidate');
+        header('Content-type: application/json');
+
+        // Load libraries
+        //---------------
+
+        $this->load->library('beams/Beams');
+        $output = $this->beams->run_modem_command('beamselector lock');
+
+        echo json_encode($output);
+    }
+
 }

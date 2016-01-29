@@ -27,6 +27,7 @@ header('Content-Type: application/x-javascript');
 ?>
 
 var lang_warning = '<?php echo lang('base_warning'); ?>';
+var lang_info = '<?php echo lang('base_information'); ?>';
 var lang_status = '<?php echo lang('beams_modem_status'); ?>';
 var lang_network = '<?php echo lang('base_network'); ?>';
 var lang_transmit = '<?php echo lang('beams_transmit'); ?>';
@@ -61,15 +62,19 @@ $(document).ready(function() {
         if ($('#command').val() == 0)
             $('#terminal_out').html('');
         else
-            execute_command($('#command').val());
+            execute_command($('#command').val(), false);
     });
     $('#bootproto').change(function() {
         set_interface_fields();
     });
     get_modem_status();
+    $('#lock_beam').on('click', function(e) {
+        e.preventDefault();
+        execute_command('beamselector lock', true);
+    });
 });
 
-function execute_command(command) {
+function execute_command(command, nonterminal) {
     $('#terminal_out').html('<div class="theme-loading-small" id="terminal_wait"></div>');
     $.ajax({
         dataType: 'json',
@@ -77,6 +82,11 @@ function execute_command(command) {
         data: 'ci_csrf_token=' + $.cookie('ci_csrf_token') + '&command=' + command,
         type: 'POST',
         success: function(json) {
+            if (nonterminal) {
+                clearos_dialog_box('info', lang_info, json.toString());
+                return;
+            }
+            clearos_dialog_box('error', lang_warning, xhr.responseText.toString());
             $('#terminal_out').html('');
             $.each(json, function (id, line) {
                 $('#terminal_out').append('<span>' + line + '</span>');

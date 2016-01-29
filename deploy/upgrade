@@ -1,0 +1,7 @@
+#!/bin/sh
+
+EXISTS=`ls /usr/clearos/apps/beams/deploy`
+if [ ! -n "$EXISTS" ]; then
+    logger -p local6.notice -t installer "app-beams-core - converting Beam database"
+    /usr/clearos/apps/beams/deploy/beam_list.convert
+fi
