@@ -5,3 +5,10 @@ if [ ! -n "$EXISTS" ]; then
     logger -p local6.notice -t installer "app-beams-core - converting Beam database"
     /usr/clearos/apps/beams/deploy/beam_list.convert
 fi
+
+EXISTS=`grep '^#.*beam_timer' /etc/cron.d/app-beams`
+if [ ! -n "$EXISTS" ]; then
+    logger -p local6.notice -t installer "app-beams-core - disabling timer"
+    sed -i '/beam_timer/s/^/#/' /etc/cron.d/app-beams
+    /sbin/service crond reload
+fi
