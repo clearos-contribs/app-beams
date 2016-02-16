@@ -86,7 +86,6 @@ function execute_command(command, nonterminal) {
                 clearos_dialog_box('info', lang_info, json.toString());
                 return;
             }
-            clearos_dialog_box('error', lang_warning, xhr.responseText.toString());
             $('#terminal_out').html('');
             $.each(json, function (id, line) {
                 $('#terminal_out').append('<span>' + line + '</span>');
@@ -144,7 +143,7 @@ function get_modem_status() {
         dataType: 'json',
         url: '/app/beams/modem/status',
         success: function(json) {
-            console.log(json);
+            //console.log(json);
             if (json != undefined) {
                 // Status
                 if (json.state == 1)

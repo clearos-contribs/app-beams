@@ -447,9 +447,9 @@ class Beams extends Engine
             'receive' => 0
         );
         try {
-            $output = $this->run_modem_command('tick');
+            $output = $this->run_modem_command('sn');
             foreach ($output as $line) {
-                if (preg_match("/^Time Tick.*/", $line)) {
+                if (preg_match("/^Serial Number.*/", $line)) {
                     $status['state'] = 1;
                     break;
                 }
