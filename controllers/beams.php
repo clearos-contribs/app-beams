@@ -47,6 +47,7 @@ class Beams extends ClearOS_Controller
         $controllers = array('beams/settings', 'beams/satellites');
 
         $options['breadcrumb_links'] = array(
+            'wizard' => array('url' => '/app/beams/beam_lock', 'tag' => lang('beams_lock_beam'), 'id' => 'lock_beam'),
             'settings' => array('url' => '/app/beams/network', 'tag' => lang('beams_network_status')),
             'terminal' => array('url' => '/app/beams/modem/terminal', 'tag' => lang('beams_terminal')),
             'power' => array('url' => '/app/beams/modem/reboot', 'tag' => lang('beams_reboot_modem'))

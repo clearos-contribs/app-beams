@@ -59,7 +59,7 @@ class Satellites extends ClearOS_Controller
         //---------------
         $this->load->library('beams/Beams');
 
-		$this->lang->load('beams');
+        $this->lang->load('beams');
 
         try {
             $data['satellites'] = $this->beams->get_beam_selector_list();
@@ -70,7 +70,68 @@ class Satellites extends ClearOS_Controller
         $data['show_admin'] = ($this->session->userdata('username') === 'root') ? TRUE : FALSE;
 
         $this->page->view_form('beams/satellites', $data, lang('beams_beams'));
-	}
+    }
+
+    /**
+     * Add satellite controller.
+     *
+     * @return view
+     */
+
+    function add()
+    {
+        // Load libraries
+        //---------------
+        $this->load->library('beams/Beams');
+
+        $this->lang->load('beams');
+
+        if ($this->session->userdata('username') != 'root') {
+            $this->page->set_message(lang('beams_access_denied'));
+            redirect('/beams');
+            return;
+        }
+
+        $this->form_validation->set_policy('provider', 'beams/Beams', 'validate_provider', TRUE);
+        $this->form_validation->set_policy('name', 'beams/Beams', 'validate_name', TRUE);
+        $this->form_validation->set_policy('number', 'beams/Beams', 'validate_number', TRUE);
+        $this->form_validation->set_policy('position', 'beams/Beams', 'validate_position', FALSE);
+        $this->form_validation->set_policy('description', 'beams/Beams', 'validate_description', FALSE);
+
+        $form_ok = $this->form_validation->run();
+
+        // Handle form submit
+        //-------------------
+
+        if ($this->input->post('submit') && ($form_ok === TRUE)) {
+
+            try {
+                $this->beams->add_beam(
+                    $this->input->post('provider'),
+                    $this->input->post('name'),
+                    $this->input->post('number'),
+                    $this->input->post('position'),
+                    $this->input->post('description'),
+                    $this->input->post('network'),
+                    $this->input->post('tx'),
+                    $this->input->post('available')
+                );
+                redirect('/beams/satellites/admin');
+            } catch (Exception $e) {
+                $data['fatal_error'] = clearos_exception_message($e); 
+            }
+        }
+
+        $data['power_options'] = $this->beams->get_power_options();
+        $network_options = $this->beams->get_interface_configs();
+        foreach ($network_options as $key => $value) {
+            if (is_array($value))
+                $data['network_options'][$key] = $key;
+            else
+                $data['network_options'][$key] = $value;
+        }
+        $this->page->view_form('beams/add_beam', $data, lang('beams_beams'));
+    }
 
     /**
      * Edit satellite controller.
@@ -86,7 +147,7 @@ class Satellites extends ClearOS_Controller
         //---------------
         $this->load->library('beams/Beams');
 
-		$this->lang->load('beams');
+        $this->lang->load('beams');
 
         if ($this->session->userdata('username') != 'root') {
             $this->page->set_message(lang('beams_access_denied'));
@@ -94,16 +155,26 @@ class Satellites extends ClearOS_Controller
             return;
         }
 
+        $this->form_validation->set_policy('number', 'beams/Beams', 'validate_number', TRUE);
+        $this->form_validation->set_policy('position', 'beams/Beams', 'validate_position', FALSE);
+        $this->form_validation->set_policy('description', 'beams/Beams', 'validate_description', FALSE);
+
+        $form_ok = $this->form_validation->run();
+
         // Handle form submit
         //-------------------
 
-        if ($this->input->post('submit')) {
+        if ($this->input->post('submit') && ($form_ok === TRUE)) {
 
             try {
                 $this->beams->set_beam_defaults(
                     $id,
                     $this->input->post('power'),
-                    $this->input->post('network')
+                    $this->input->post('network'),
+                    $this->input->post('number'),
+                    $this->input->post('position'),
+                    $this->input->post('description'),
+                    $this->input->post('available')
                 );
                 redirect('/beams/satellites/admin');
             } catch (Exception $e) {
@@ -129,7 +200,7 @@ class Satellites extends ClearOS_Controller
         }
 
         $this->page->view_form('beams/beam', $data, lang('beams_beams'));
-	}
+    }
 
     /**
      * Administer satellites controller.
@@ -143,7 +214,7 @@ class Satellites extends ClearOS_Controller
         //---------------
         $this->load->library('beams/Beams');
 
-		$this->lang->load('beams');
+        $this->lang->load('beams');
 
         if ($this->session->userdata('username') != 'root') {
             $this->page->set_message(lang('beams_access_denied'));
@@ -160,7 +231,7 @@ class Satellites extends ClearOS_Controller
         $data['show_admin'] = ($this->session->userdata('username') === 'root') ? TRUE : FALSE;
 
         $this->page->view_form('beams/admin_satellites', $data, lang('beams_beams'));
-	}
+    }
 
     /**
      * Enable satellite controller.
@@ -176,12 +247,51 @@ class Satellites extends ClearOS_Controller
         //---------------
         $this->load->library('beams/Beams');
 
-		$this->lang->load('beams');
+        $this->lang->load('beams');
 
         $data['satellites'] = $this->beams->set_acl($id, TRUE);
 
         redirect('/beams/satellites/admin');
-	}
+    }
+
+    /**
+     * Delete satellite controller.
+     *
+     * @param string $id satellite ID
+     * @param string $confirm confirm intentions to delete
+     *
+     * @return void
+     */
+
+    function delete($id, $confirm)
+    {
+        // Load libraries
+        //---------------
+        $this->load->library('beams/Beams');
+
+        $this->lang->load('beams');
+
+        if ($this->session->userdata('username') != 'root') {
+            $this->page->set_message(lang('beams_access_denied'));
+            redirect('/beams');
+            return;
+        }
+
+        $this->lang->load('beams');
+        $confirm_uri = '/app/beams/satellites/delete/' . $id . "/1";
+        $cancel_uri = '/app/beams/satellites/admin';
+
+        if ($confirm != NULL) {
+            $this->beams->delete_satellite($id);
+            redirect('/beams/satellites/admin');
+            return;
+        }
+
+        $items = array($id);
+
+        $this->page->view_confirm_delete($confirm_uri, $cancel_uri, $items);
+
+    }
 
     /**
      * Disable satellite controller.
@@ -197,7 +307,7 @@ class Satellites extends ClearOS_Controller
         //---------------
         $this->load->library('beams/Beams');
 
-		$this->lang->load('beams');
+        $this->lang->load('beams');
 
         if ($this->session->userdata('username') != 'root') {
             $this->page->set_message(lang('beams_access_denied'));
@@ -208,7 +318,7 @@ class Satellites extends ClearOS_Controller
         $data['satellites'] = $this->beams->set_acl($id, FALSE);
 
         redirect('/beams/satellites/admin');
-	}
+    }
 
     /**
      * Switch beam.
@@ -223,8 +333,9 @@ class Satellites extends ClearOS_Controller
         // Load libraries
         //---------------
 
+        $this->load->library('session');
         $this->load->library('beams/Beams');
-		$this->lang->load('beams');
+        $this->lang->load('beams');
 
         $data = array(
             'id' => $id,
@@ -244,7 +355,6 @@ class Satellites extends ClearOS_Controller
             redirect('/beams/satellites/switch_beam/' . $id);
             return;
         }
-
         $this->page->view_form('beams/switch_beam', $data, lang('beams_switch_beam'));
     }
 
@@ -262,7 +372,7 @@ class Satellites extends ClearOS_Controller
         //---------------
 
         $this->load->library('beams/Beams');
-		$this->lang->load('beams');
+        $this->lang->load('beams');
 
         $data = array(
             'id' => $id,

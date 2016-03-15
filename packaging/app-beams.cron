@@ -1,2 +1,2 @@
 0 2 * * * root /usr/clearos/apps/beams/deploy/beam_notification.php >/dev/null 2>&1
-* * * * * root /usr/clearos/apps/beams/deploy/beam_timer.php >/dev/null 2>&1
+#* * * * * root /usr/clearos/apps/beams/deploy/beam_timer.php >/dev/null 2>&1

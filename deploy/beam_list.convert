@@ -1,0 +1,81 @@
+#!/usr/clearos/sandbox/usr/bin/php
+<?php
+
+/**
+ * Beams class.
+ *
+ * @category   apps
+ * @package    beams
+ * @subpackage scripts
+ * @author     ClearCenter <developer@clearcenter.com>
+ * @copyright  2015-2016 Marine VSAT
+ * @license    http://www.clearcenter.com/app_license ClearCenter license
+ * @link       http://www.clearcenter.com/support/documentation/clearos/beams/
+ */
+
+///////////////////////////////////////////////////////////////////////////////
+// B O O T S T R A P
+///////////////////////////////////////////////////////////////////////////////
+
+$bootstrap = getenv('CLEAROS_BOOTSTRAP') ? getenv('CLEAROS_BOOTSTRAP') : '/usr/clearos/framework/shared';
+require_once $bootstrap . '/bootstrap.php';
+
+///////////////////////////////////////////////////////////////////////////////
+// T R A N S L A T I O N S
+///////////////////////////////////////////////////////////////////////////////
+
+clearos_load_language('base');
+
+///////////////////////////////////////////////////////////////////////////////
+// D E P E N D E N C I E S
+///////////////////////////////////////////////////////////////////////////////
+
+use \clearos\apps\base\File as File;
+use \clearos\apps\beams\Beams as Beams;
+
+clearos_load_library('base/File');
+clearos_load_library('beams/Beams');
+
+// Exceptions
+//-----------
+
+use \Exception as Exception;
+
+///////////////////////////////////////////////////////////////////////////////
+// M A I N
+///////////////////////////////////////////////////////////////////////////////
+
+try {
+        $info_file = clearos_app_base('beams') . '/deploy/base_list.php';
+
+        if (file_exists($info_file))
+            include $info_file;
+        else {
+            echo "base_list.php does not exist - nothing to convert.\n";
+            exit(0);
+        }
+
+        $list = Array();
+        foreach ($BEAMS as $beam) {
+            $list[$beam[0] . '_' . $beam[1]] = array(
+                'provider' => $beam[0],
+                'name' => $beam[1],
+                'number' => $beam[2],
+                'position' => $beam[3],
+                'description' => $beam[4],
+                'region' => $beam[5],
+                'power' => $beam[6],
+                'available' => TRUE,
+                'geotags' => array()
+            );
+        }
+        $file = new File(Beams::FILE_CONFIG);
+        $file->add_lines('beams=' . json_encode($list));
+        $old = new File($info_file);
+        $old->delete();
+} catch (Exception $e) {
+    echo "Error converting beam list: " . clearos_exception_message($e) . "\n";
+    clearos_log('beam_notification', "Error converting beam list: " . clearos_exception_message($e));
+}
+
+// vim: syntax=php ts=4

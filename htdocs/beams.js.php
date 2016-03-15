@@ -27,6 +27,7 @@ header('Content-Type: application/x-javascript');
 ?>
 
 var lang_warning = '<?php echo lang('base_warning'); ?>';
+var lang_info = '<?php echo lang('base_information'); ?>';
 var lang_status = '<?php echo lang('beams_modem_status'); ?>';
 var lang_network = '<?php echo lang('base_network'); ?>';
 var lang_transmit = '<?php echo lang('beams_transmit'); ?>';
@@ -46,15 +47,19 @@ $(document).ready(function() {
         if ($('#command').val() == 0)
             $('#terminal_out').html('');
         else
-            execute_command($('#command').val());
+            execute_command($('#command').val(), false);
     });
     $('#bootproto').change(function() {
         set_interface_fields();
     });
     get_modem_status();
+    $('#lock_beam').on('click', function(e) {
+        e.preventDefault();
+        execute_command('beamselector lock', true);
+    });
 });
 
-function execute_command(command) {
+function execute_command(command, nonterminal) {
     var options = new Object;
     options.center = true;
     options.id = 'terminal_wait';
@@ -66,6 +71,10 @@ function execute_command(command) {
         data: 'ci_csrf_token=' + $.cookie('ci_csrf_token') + '&command=' + command,
         type: 'POST',
         success: function(json) {
+            if (nonterminal) {
+                clearos_dialog_box('info', lang_info, json.toString());
+                return;
+            }
             $('#terminal_out').html('');
             $.each(json, function (id, line) {
                 $('#terminal_out').append('<span>' + line + '</span>');
@@ -123,7 +132,6 @@ function get_modem_status() {
         dataType: 'json',
         url: '/app/beams/modem/status',
         success: function(json) {
-            console.log(json);
             if (json != undefined) {
                 // Status
                 if (json.state == 1)
@@ -135,12 +143,20 @@ function get_modem_status() {
                     $('#beams_network').addClass('beams-status-green');
                 else if (json.network == 3)
                     $('#beams_network').addClass('beams-status-red');
+                // Transmit 
+                if (json.transmit == 1)
+                    $('#beams_transmit').addClass('beams-status-green');
+                else if (json.transmit == 3)
+                    $('#beams_transmit').addClass('beams-status-red');
+                // Receive
+                if (json.receive == 1)
+                    $('#beams_receive').addClass('beams-status-green');
+                else if (json.receive == 3)
+                    $('#beams_receive').addClass('beams-status-red');
             }
-            window.setTimeout(get_modem_status, 30000);
-        },
-        error: function(xhr, text, err) {
-            console.log('Error ' + xhr.responseText.toString());
-            window.setTimeout(get_modem_status, 30000);
+
+            if ($(location).attr('href').match(/.*\/modem\/terminal/) == null)
+                window.setTimeout(get_modem_status, 30000);
         }
     });
 }
